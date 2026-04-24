@@ -1,7 +1,7 @@
-package Japser;
+package jasper;
 
-import Japser.FeatureData.BlackjackData;
-import Japser.FeatureData.ChessData;
+import jasper.FeatureData.BlackjackData;
+import jasper.FeatureData.ChessData;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;

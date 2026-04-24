@@ -1,7 +1,7 @@
-package Japser.ListenerEvent;
+package jasper.ListenerEvent;
 
-import Japser.FeatureData.BlackjackData;
-import Japser.FeatureData.ChessData;
+import jasper.FeatureData.BlackjackData;
+import jasper.FeatureData.ChessData;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
@@ -13,10 +13,10 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
-import static Japser.Feature.Blackjack.*;
-import static Japser.Feature.Chess.chessremovegamelists;
-import static Japser.Feature.Rockpaperscissor.*;
-import static Japser.VariableList.*;
+import static jasper.Feature.Blackjack.*;
+import static jasper.Feature.Chess.chessremovegamelists;
+import static jasper.Feature.Rockpaperscissor.*;
+import static jasper.VariableList.*;
 
 public class ButtonInteraction extends ListenerAdapter {
     public void onButtonInteraction(@NotNull ButtonInteractionEvent event) {
@@ -42,7 +42,7 @@ public class ButtonInteraction extends ListenerAdapter {
                     break;
                 }
                 BlackjackData.getplayer(userwhoclick.getId()).changestatus("idle"); //ngubah status ke idle
-                HashMap<String, Japser.FeatureData.BlackjackData.Blackjackplayerinfo> playerlist = BlackjackData.getPlayerlist();
+                HashMap<String, jasper.FeatureData.BlackjackData.Blackjackplayerinfo> playerlist = BlackjackData.getPlayerlist();
                 StringBuilder infogame = new StringBuilder().append("Menunggu jawaban user...\n");
                 for(var Playerinfo : playerlist.entrySet()){
                     String status = Playerinfo.getValue().getstatus();
@@ -93,7 +93,7 @@ public class ButtonInteraction extends ListenerAdapter {
                     break;
                 }
                 BlackjackData.getplayer(userwhoclick.getId()).changestatus("decline"); //ngubah status ke decline
-                HashMap<String, Japser.FeatureData.BlackjackData.Blackjackplayerinfo> playerlist = BlackjackData.getPlayerlist();
+                HashMap<String, jasper.FeatureData.BlackjackData.Blackjackplayerinfo> playerlist = BlackjackData.getPlayerlist();
                 StringBuilder infogame = new StringBuilder().append("Menunggu jawaban user...\n");
                 for(var Playerinfo : playerlist.entrySet()){
                     String status = Playerinfo.getValue().getstatus();
@@ -335,7 +335,7 @@ public class ButtonInteraction extends ListenerAdapter {
                 }
                 ChessData.getPlayerlist().forEach((entry, player) -> player.setStatus("playing"));
 
-                Japser.FeatureData.ChessData.start();
+                jasper.FeatureData.ChessData.start();
                 EmbedBuilder chessembd = ChessData.getMessageembd().setColor(0xff00b6)
                         .setDescription(ChessData.convertInfoToString()).setFooter("");
                 ChessData.getPlayerlist().values().forEach(entry ->

@@ -13,12 +13,13 @@ repositories {
 dependencies {
     implementation("net.dv8tion:JDA:5.3.0")
     implementation("com.googlecode.json-simple:json-simple:1.1.1")
+    implementation("org.slf4j:slf4j-simple:2.0.13")
 }
 
 tasks.jar {
     manifest {
         attributes(
-            "Main-Class" to "Jasper.Main"
+            "Main-Class" to "jasper.Main"
         )
     }
 }
@@ -27,7 +28,7 @@ tasks {
     shadowJar {
         manifest {
             attributes(
-                "Main-Class" to "Jasper.Main"
+                "Main-Class" to "jasper.Main"
             )
         }
     }

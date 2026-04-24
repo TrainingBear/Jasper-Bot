@@ -1,4 +1,4 @@
-package Japser.Feature;
+package jasper.Feature;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -10,8 +10,8 @@ import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import static Japser.VariableList.*;
-import static Japser.VariableList.gbkembd;
+import static jasper.VariableList.*;
+import static jasper.VariableList.gbkembd;
 
 public class Rockpaperscissor {
     public static void directgbkcommand(MessageReceivedEvent event, String yourchoice){

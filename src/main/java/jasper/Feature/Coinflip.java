@@ -1,4 +1,4 @@
-package Japser.Feature;
+package jasper.Feature;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -6,7 +6,7 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 
 import java.util.concurrent.TimeUnit;
 
-import static Japser.VariableList.random;
+import static jasper.VariableList.random;
 
 public class Coinflip {
     public static void coinflipcommand(MessageReceivedEvent event){

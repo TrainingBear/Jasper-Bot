@@ -1,6 +1,6 @@
-package Japser.Feature;
+package jasper.Feature;
 
-import Japser.FeatureData.ChessData;
+import jasper.FeatureData.ChessData;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
@@ -12,7 +12,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
-import static Japser.VariableList.*;
+import static jasper.VariableList.*;
 
 public class Chess {
     public static void chesscommand(MessageReceivedEvent event, String inputuser){

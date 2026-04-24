@@ -1,4 +1,4 @@
-package Japser;
+package jasper;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -14,7 +14,7 @@ import java.util.Timer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static Japser.Embedmessg.*;
+import static jasper.Embedmessg.*;
 
 public class Method extends Action {
     //|| ======================== EMOJI ========================||

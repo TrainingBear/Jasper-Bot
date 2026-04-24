@@ -1,4 +1,4 @@
-package Japser;
+package jasper;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -10,7 +10,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 
-import static Japser.Method.*;
+import static jasper.Method.*;
 
 public class Embedmessg {
     static Random random = new Random();

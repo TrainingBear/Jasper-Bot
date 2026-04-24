@@ -1,4 +1,4 @@
-package Japser.FeatureData;
+package jasper.FeatureData;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 
@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import static Japser.VariableList.random;
+import static jasper.VariableList.random;
 
 public class BlackjackData {
     EmbedBuilder messageembd = new EmbedBuilder();

@@ -1,14 +1,14 @@
-package Japser.FeatureData;
+package jasper.FeatureData;
 
-import Japser.FeatureData.FeatureEnum.ChessVariable;
+import jasper.FeatureData.FeatureEnum.ChessVariable;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 
 import java.util.*;
 
-import static Japser.Feature.Chess.chessremovegamelists;
-import static Japser.Feature.Chess.chesssenderrormessg;
-import static Japser.VariableList.*;
+import static jasper.Feature.Chess.chessremovegamelists;
+import static jasper.Feature.Chess.chesssenderrormessg;
+import static jasper.VariableList.*;
 
 public class ChessData {
     EmbedBuilder messageembd = new EmbedBuilder();

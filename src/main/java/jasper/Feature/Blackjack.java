@@ -1,6 +1,6 @@
-package Japser.Feature;
+package jasper.Feature;
 
-import Japser.FeatureData.BlackjackData;
+import jasper.FeatureData.BlackjackData;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
@@ -13,7 +13,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
-import static Japser.VariableList.*;
+import static jasper.VariableList.*;
 
 public class Blackjack {
     public static void blackjackcommand(MessageReceivedEvent event, String inputuser) {

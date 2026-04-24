@@ -1,4 +1,4 @@
-package Japser.Feature;
+package jasper.Feature;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -14,7 +14,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 
-import static Japser.VariableList.weathercdboolean;
+import static jasper.VariableList.weathercdboolean;
 
 public class Weather {
     static String wclouddesc,wcityname,wcountryname;

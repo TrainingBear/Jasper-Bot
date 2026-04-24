@@ -1,4 +1,4 @@
-package Japser.Feature;
+package jasper.Feature;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;

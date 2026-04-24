@@ -1,4 +1,4 @@
-package Japser;
+package jasper;
 
 import java.util.Objects;
 import java.util.Random;
@@ -23,8 +23,8 @@ import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import org.jetbrains.annotations.NotNull;
 
 
-import static Japser.Embedmessg.directgbkembd;
-import static Japser.Method.*;
+import static jasper.Embedmessg.directgbkembd;
+import static jasper.Method.*;
 
 public class Action extends ListenerAdapter {
     Random random = new Random();

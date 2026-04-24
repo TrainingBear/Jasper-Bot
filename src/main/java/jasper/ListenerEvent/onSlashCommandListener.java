@@ -1,4 +1,4 @@
-package Japser.ListenerEvent;
+package jasper.ListenerEvent;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -10,18 +10,18 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
-import static Japser.Feature.Calculator.mathcommand;
-import static Japser.Feature.Calculator.mathinputconvert;
-import static Japser.Feature.Coinflip.coinflipcommand;
-import static Japser.Feature.Coinflip.coinflipguesscommand;
-import static Japser.Feature.Diceroll.dicerollcommand;
-import static Japser.Feature.Diceroll.dicerollguesscommand;
-import static Japser.Feature.Help.helpcommand;
-import static Japser.Feature.Rockpaperscissor.directgbkembd;
-import static Japser.Feature.Rockpaperscissor.gbkcommand;
-import static Japser.Feature.Weather.weathercommand;
-import static Japser.VariableList.*;
-import static Japser.VariableList.username;
+import static jasper.Feature.Calculator.mathcommand;
+import static jasper.Feature.Calculator.mathinputconvert;
+import static jasper.Feature.Coinflip.coinflipcommand;
+import static jasper.Feature.Coinflip.coinflipguesscommand;
+import static jasper.Feature.Diceroll.dicerollcommand;
+import static jasper.Feature.Diceroll.dicerollguesscommand;
+import static jasper.Feature.Help.helpcommand;
+import static jasper.Feature.Rockpaperscissor.directgbkembd;
+import static jasper.Feature.Rockpaperscissor.gbkcommand;
+import static jasper.Feature.Weather.weathercommand;
+import static jasper.VariableList.*;
+import static jasper.VariableList.username;
 
 public class onSlashCommandListener extends ListenerAdapter {
     public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event){
