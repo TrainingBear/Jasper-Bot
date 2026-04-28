@@ -1,4 +1,4 @@
-package jasper.FeatureData.FeatureEnum;
+package jasper.featureData.featureEnum;
 
 public enum ChessVariable {
     WPAWN_WSQUARED("<:WPawnWsquared:1345299087318192219>"),
