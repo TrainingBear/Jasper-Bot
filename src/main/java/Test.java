@@ -1,105 +1,51 @@
-package jasper.feature;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 
-import jasper.feature.Help.FeatureContainer;
-import jasper.featureData.ColorUtil;
-import kotlin.Pair;
-import kotlin.Triple;
-import net.dv8tion.jda.api.entities.MessageEmbed;
-import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
-import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.api.interactions.commands.OptionMapping;
-import net.dv8tion.jda.api.interactions.commands.OptionType;
-import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+public class Test {
+    private static class InputWrapper {
+        public StringBuilder input;
+        public int index = 0;
 
-public final class Math implements FeatureInterface {
+        public InputWrapper(String input) {
+            this.input = new StringBuilder(input);
+        }
 
-	@Override
-	public Triple<Pair<String, String>, OptionData, List<String>> commandInsert() {
-		OptionData options = new OptionData(OptionType.STRING,
-				"input", "Masukkan input untuk dikalkulasi,", true);
-		Help.inputFeature(new FeatureContainer(
-				List.of("math", "="),
-				"🔢 **!math** _atau_ **=**",
-				"Kalkulator matematika",
-				List.of("""
-						🔢 Kalkulator matematika
-						*Tidak support aljabar*
-						**List/daftar operator:**
-						[ `+` ] Penjumlahan [ `-` ] Pengurangan
-						[ `*` ] Perkalian [ `/` ] Pembagian
-						[ `;` ] Modulus/sisa
-						[ `(\uD835\uDC5B)` ] Tanda kurung
-						[ `(a^(b))` ] Perpangkatan
-						[ `sqrt(\uD835\uDC5B)` ] Akar kuadrat
-						[ `cbrt(\uD835\uDC5B)` ] Akar kubik
-						""", """
-						🔢 Kalkulator matematika
-						*Tidak support aljabar*
-						**List/daftar operator:**
-						[ `\uD835\uDC5B!` ] Pemfaktorial
-						[ `pi`/`π` ] Pi (3.14≈) [ `e` ] e *konstanta* (2.71≈)
-						[ `\uD835\uDC5B%` ] Persentase
-						**Suffix:** *satuan*
-						[ \uD835\uDC5B`k` ] seribu [ \uD835\uDC5B`jt` ] sejuta
-						[ \uD835\uDC5B`m` ] semilyar [ \uD835\uDC5B`t` ] setriliun
-						""")));
-		return new Triple<Pair<String, String>, OptionData, List<String>>(
-				new Pair<String, String>("math", "Kalkulator matematika, tidak support aljabar"),
-				options,
-				List.of("math", "="));
-	}
+        public InputWrapper addIndex() {
+            this.index++;
+            return this;
+        }
 
-	@Override
-	public void handleCommand(SlashCommandInteractionEvent event) {
-		final OptionMapping inputArg;
-		if ((inputArg = event.getOption("input")) != null)
-			event.replyEmbeds(calculate(inputArg.getAsString())).queue();
-	}
+        public void createError(final String message, final int whichIndex) {
+            this.index = whichIndex;
+            throw new RuntimeException(message);
+        }
+    }
 
-	@Override
-	public void handleCommandMessage(MessageReceivedEvent event, String[] args) {
-		if (args.length == 0) {
-			event.getMessage().replyEmbeds(ColorUtil.ERROR.getEmbedMessage("Kalkulator")
-					.setDescription("Masukkan input!").build())
-					.queue(message -> message.delete().queueAfter(8, TimeUnit.SECONDS));
-			return;
-		}
-		StringBuilder sb = new StringBuilder();
-		for (final String s : args)
-			sb.append(s);
-		event.getMessage().replyEmbeds(calculate(sb.toString())).queue();
-	}
+    final static Map<Character, BiFunction<BigDecimal, BigDecimal, BigDecimal>> operatorsMap = Map.of(
+            '+', (a, b) -> a.add(b),
+            '-', (a, b) -> a.subtract(b),
+            '*', (a, b) -> a.multiply(b),
+            '/', (a, b) -> a.divide(b, 10, RoundingMode.HALF_UP),
+            ';', (a, b) -> a.remainder(b));
 
-	final private static Map<Character, BiFunction<BigDecimal, BigDecimal, BigDecimal>> operatorsMap = Map.of(
-			'+', (a, b) -> a.add(b),
-			'-', (a, b) -> a.subtract(b),
-			'*', (a, b) -> a.multiply(b),
-			'/', (a, b) -> a.divide(b, 10, RoundingMode.HALF_UP),
-			';', (a, b) -> a.remainder(b));
+    public static void main(String[] args) {
+        InputWrapper input = new InputWrapper("10/(1200-(2*(1300/2)))+8");
+        System.out.println("INPUT: " + input.input);
+        BigDecimal output;
+        try {
+            output = handleScope(input, false);
+        } catch (Exception e) {
+            input.input.insert(input.index, " ").insert(input.index + 2, " ");
+            System.out.println(input.input + "\nERROR WHILE ON INDEX: " + input.index);
+            e.printStackTrace();
+            return;
+        }
+        System.out.println("OUTPUT: " + output);
+    }
 
-	private static MessageEmbed calculate(String inputString) {
-		InputWrapper input = new InputWrapper(inputString);
-		BigDecimal output;
-		try {
-			output = handleScope(input, false);
-			return ColorUtil.NORMAL.getEmbedMessage("Kalkulator")
-					.setDescription("Hasil dari: " + input.input + "\n```" + output + "```").build();
-		} catch (Exception e) {
-			input.input.insert(input.index, " __**").insert(input.index + 6, "**__ ")
-					.append('\n').append(e.getMessage());
-			return ColorUtil.ERROR.getEmbedMessage("**ERROR!** Kalkulator").setDescription(input.input.toString())
-					.build();
-		}
-	}
-
-	/**
+    /**
      * 
      * @param iW          NOT NULL
      * @param closingChar
@@ -185,23 +131,4 @@ public final class Math implements FeatureInterface {
         return nextIndex >= input.length() || nextIndex < 0 ? false
                 : (nextChar = input.charAt(nextIndex)) == '.' || Character.isDigit(nextChar);
     }
-
-	private static class InputWrapper {
-		public StringBuilder input;
-		public int index = 0;
-
-		public InputWrapper(String input) {
-			this.input = new StringBuilder(input);
-		}
-
-		public InputWrapper addIndex() {
-			this.index++;
-			return this;
-		}
-
-		public void createError(final String message, final int whichIndex) {
-			this.index = whichIndex;
-			throw new RuntimeException(message);
-		}
-	}
 }

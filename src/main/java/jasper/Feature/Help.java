@@ -1,6 +1,7 @@
 package jasper.feature;
 
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
@@ -26,14 +27,14 @@ public final class Help implements FeatureInterface {
     }
 
     public static final class FeatureContainer {
-        private String commandArgs, shortDesc, longDesc;
-        private List<String> prefixes;
+        private String commandArgs, shortDesc;
+        private List<String> prefixes, longDesc;
 
         public FeatureContainer(
                 final List<String> prefixes,
                 final String commandArgs,
                 final String shortDesc,
-                final String longDesc) {
+                final List<String> longDesc) {
             this.prefixes = prefixes;
             this.commandArgs = commandArgs;
             this.shortDesc = shortDesc;
@@ -59,7 +60,18 @@ public final class Help implements FeatureInterface {
 
     @Override
     public void handleCommandMessage(@NotNull MessageReceivedEvent event, @NotNull final String[] args) {
+        if (args.length > 2) {
+            argumentNotValid(event.getMessage(), null);
+            return;
+        }
         final boolean isNoArgs = args.length == 0;
+        int pageIndex, maxPage = 1;
+        try {
+            pageIndex = args.length == 2 ? Integer.parseInt(args[1]) - 1 : 0;
+        } catch (NumberFormatException e) {
+            argumentNotValid(event.getMessage(), null);
+            return;
+        }
         final String argsPrefix = isNoArgs ? "" : args[0];
         StringBuilder toShow = new StringBuilder();
 
@@ -67,23 +79,29 @@ public final class Help implements FeatureInterface {
             if (isNoArgs)
                 toShow.append(i.commandArgs + '\n').append(i.shortDesc + '\n');
             else if (i.prefixes.contains(argsPrefix)) {
-                toShow.append(i.longDesc);
+                toShow.append(
+                        i.longDesc.get(pageIndex < (maxPage = i.longDesc.size())
+                                ? (pageIndex < 1 ? (pageIndex = 0) : pageIndex)
+                                : (pageIndex = i.longDesc.size() - 1)));
                 break;
             }
         }
         if (!isNoArgs && toShow.isEmpty()) {
-            event.getMessage().replyEmbeds(
+            argumentNotValid(event.getMessage(),
                     ColorUtil.ERROR.getEmbedMessage("Jasper⛏Project Command list ~~" + argsPrefix + "~~")
-                            .setDescription("Tidak ada command \"" + argsPrefix + "\", lihat !jhelp untuk list command")
-                            .build())
-                    .queue(message -> message.delete().queueAfter(8, TimeUnit.SECONDS));
-            
+                            .setDescription("Tidak ada command \"" + argsPrefix +
+                                    "\", lihat !jhelp untuk list command"));
             return;
         }
         event.getMessage().replyEmbeds(
                 ColorUtil.NORMAL.getEmbedMessage("Jasper⛏Project Command list" + (isNoArgs ? "" : argsPrefix))
-                        .setDescription(toShow).build())
+                        .setDescription(toShow).setFooter("Halaman " + (++pageIndex) + '/' + maxPage).build())
                 .queue();
+    }
+
+    private static void argumentNotValid(@NotNull Message msg, @Nullable EmbedBuilder embed) {
+        msg.replyEmbeds(embed.build()).queue(message -> message.delete()
+                .queueAfter(8, TimeUnit.SECONDS));
     }
 
 }

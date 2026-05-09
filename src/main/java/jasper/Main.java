@@ -2,7 +2,6 @@ package jasper;
 
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
-import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
@@ -10,6 +9,7 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 
@@ -101,8 +101,12 @@ public final class Main extends ListenerAdapter {
         FeatureInterface fI = commandMapping.get(event.getName());
         if (fI != null) {
             fI.handleCommand(event);
-            sendLog(event.getUser().getName() + " in " + event.getChannel().getName() + " executing: "
-                    + event.getFullCommandName());
+
+            StringBuilder sb = new StringBuilder().append(event.getName() + ' ');
+            for (OptionMapping option : event.getOptions())
+                sb.append(option.getName()).append(": ").append(option.getAsString()).append(" ");
+            sendLog(event.getUser().getName() + " in " + event.getChannel().getName() + " executing: " + sb.toString());
+
         } else
             sendLog("Command not found! " + event.getName());
     }
