@@ -1,37 +1,104 @@
+package jasper.feature;
+
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BinaryOperator;
 
-public final class Test {
-    final private static BigDecimal PI = new BigDecimal(Math.PI), E = new BigDecimal(Math.E);
-    final static Map<String, Notation> notationsMap = Map.of(
-            "pi", (a, b, c) -> PI, "e", (a, b, c) -> E);
+import org.jetbrains.annotations.NotNull;
+import jasper.feature.Help.FeatureContainer;
+import jasper.featureData.ColorUtil;
+import net.dv8tion.jda.api.entities.MessageEmbed;
+import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.interactions.commands.OptionMapping;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
+import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 
-    public static void main(String[] args) {
-        InputWrapper input = new InputWrapper("sqrt(2");
-        System.out.println("INPUT: " + input.input);
+public final class Calculator implements FeatureInterface {
+
+    @Override
+    public FeatureInterface.CommandInfoContainer commandInsert() {
+        OptionData options = new OptionData(OptionType.STRING,
+                "input", "Masukkan input untuk dikalkulasi,", true);
+        Help.inputFeature(new FeatureContainer(
+                List.of("math", "="),
+                "🔢 **!math** _atau_ **=**",
+                "Kalkulator matematika",
+                List.of("""
+                        🔢 Kalkulator matematika
+                        *Tidak support aljabar*
+                        **List/daftar operator:**
+                        [ `+` ] Penjumlahan [ `-` ] Pengurangan
+                        [ `*` ] Perkalian [ `/` ] Pembagian
+                        [ `;` ] Modulus/sisa
+                        [ `(\uD835\uDC5B)` ] Tanda kurung
+                        [ `a^b` ] Perpangkatan
+                        [ `sqrt(\uD835\uDC5B)` ] Akar kuadrat
+                        [ `cbrt(\uD835\uDC5B)` ] Akar kubik
+                        """, """
+                        🔢 Kalkulator matematika
+                        *Tidak support aljabar*
+                        **List/daftar operator:**
+                        [ `\uD835\uDC5B!` ] Pemfaktorial
+                        [ `pi`/`π` ] Pi (3.14≈)  [ `e` ] e *konstanta* (2.71≈)
+                        [ `\uD835\uDC5B%` ] Persentase (belum ditambahkan)
+                        **Suffix:** *satuan*
+                        [ \uD835\uDC5B`k` ] seribu [ \uD835\uDC5B`m` ] sejuta
+                        [ \uD835\uDC5B`b` ] semilyar [ \uD835\uDC5B`t` ] setriliun
+                        """)));
+        return new FeatureInterface.CommandInfoContainer(
+                "math", "Kalkulator matematika, tidak support aljabar",
+                options, List.of("math", "="));
+    }
+
+    @Override
+    public void handleCommand(SlashCommandInteractionEvent event) {
+        final OptionMapping inputArg;
+        if ((inputArg = event.getOption("input")) != null)
+            event.replyEmbeds(calculate(inputArg.getAsString())).queue();
+    }
+
+    @Override
+    public void handleCommandMessage(MessageReceivedEvent event, String[] args) {
+        if (args.length == 0) {
+            event.getMessage().replyEmbeds(ColorUtil.ERROR.getEmbedMessage("Kalkulator")
+                    .setDescription("Masukkan input!").build())
+                    .queue(message -> message.delete().queueAfter(8, TimeUnit.SECONDS));
+            return;
+        }
+        StringBuilder sb = new StringBuilder();
+        for (final String s : args)
+            sb.append(s);
+        event.getMessage().replyEmbeds(calculate(sb.toString())).queue();
+    }
+
+    private static MessageEmbed calculate(String inputString) {
+        InputWrapper input = new InputWrapper(inputString);
         BigDecimal output;
         try {
-            char c;
-            for (int i = 0; i < input.input.length(); i++)
-                if (Character.isWhitespace(c = input.input.charAt(i)) || c == '\'')
-                    input.input.deleteCharAt(i--);
             output = handleScope(input, false)
                     .setScale(10, RoundingMode.FLOOR)
                     .stripTrailingZeros();
+            return ColorUtil.NORMAL.getEmbedMessage("Kalkulator")
+                    .setDescription("Hasil dari: " + input.input.toString().replace("*", "\\*") +
+                            "\n```" + output.toPlainString() + "```")
+                    .build();
         } catch (Exception e) {
-            System.out.println("ERROR WHILE ON INDEX: " + input.index);
-            if (input.index < input.input.length())
-                input.input.insert(input.index, " ").insert(input.index + 2, " ");
-            System.out.println(input.input);
-            e.printStackTrace();
-            return;
+            input.input.insert(input.index, " __**").insert(input.index + 6, "**__ ")
+                    .append('\n').append(e.getMessage());
+            return ColorUtil.ERROR.getEmbedMessage("**ERROR!** Kalkulator").setDescription(input.input.toString())
+                    .build();
         }
-        System.out.println("OUTPUT: " + output.toPlainString());
     }
+
+    final private static BigDecimal PI = new BigDecimal(Math.PI), E = new BigDecimal(Math.E);
+    final static Map<String, Notation> notationsMap = Map.of(
+            "pi", (a, b, c) -> PI, "e", (a, b, c) -> E);
 
     private static class ScopeContainer {
         boolean isStartPlus = true, isDividing = false, isFront = true;
@@ -44,7 +111,7 @@ public final class Test {
         }
     }
 
-    private static BigDecimal handleScope(/* NOT NULL */InputWrapper iw, final boolean hasClosedParam) {
+    private static BigDecimal handleScope(@NotNull InputWrapper iw, final boolean hasClosedParam) {
         if (hasClosedParam && iw.index >= iw.input.length())
             iw.createError("There is nothing to be calculate", --iw.index);
         ScopeContainer sc = new ScopeContainer(iw.index);

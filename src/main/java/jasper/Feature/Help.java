@@ -15,8 +15,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import jasper.featureData.ColorUtil;
-import kotlin.Pair;
-import kotlin.Triple;
 
 public final class Help implements FeatureInterface {
 
@@ -43,12 +41,12 @@ public final class Help implements FeatureInterface {
     }
 
     @Override
-    public @NotNull Triple<Pair<String, String>, OptionData, List<String>> commandInsert() {
+    public @NotNull CommandInfoContainer commandInsert() {
         OptionData options = new OptionData(OptionType.STRING,
                 "help_type", "Penjelasan command lebih lanjut", false);
         // TODO add options to other features
-        return new Triple<Pair<String, String>, OptionData, List<String>>(
-                new Pair<String, String>("jhelp", "Daftar `!` command"), options, List.of("jhelp"));
+        return new FeatureInterface.CommandInfoContainer(
+                "jhelp", "Daftar `!` command", options, List.of("jhelp","jh"));
     }
 
     @Override
