@@ -4,6 +4,7 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.exceptions.ContextException;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 
@@ -46,7 +47,7 @@ public final class Help implements FeatureInterface {
                 "help_type", "Penjelasan command lebih lanjut", false);
         // TODO add options to other features
         return new FeatureInterface.CommandInfoContainer(
-                "jhelp", "Daftar `!` command", options, List.of("jhelp","jh"));
+                "jhelp", "Daftar `!` command", options, List.of("jhelp", "jh"));
     }
 
     @Override
@@ -84,17 +85,23 @@ public final class Help implements FeatureInterface {
                 break;
             }
         }
-        if (!isNoArgs && toShow.isEmpty()) {
-            argumentNotValid(event.getMessage(),
-                    ColorUtil.ERROR.getEmbedMessage("Jasper⛏Project Command list ~~" + argsPrefix + "~~")
-                            .setDescription("Tidak ada command \"" + argsPrefix +
-                                    "\", lihat !jhelp untuk list command"));
+        if (isNoArgs || !toShow.isEmpty()) {
+            final Message userMessage = event.getMessage();
+            final short deleteTime = 150;
+            userMessage.replyEmbeds(
+                    ColorUtil.NORMAL.getEmbedMessage("Jasper⛏Project Command list" + (isNoArgs ? "" : argsPrefix))
+                            .setDescription(toShow).setFooter("Halaman " + (++pageIndex) + '/' + maxPage).build())
+                    .queue(message -> message.delete().queueAfter(deleteTime, TimeUnit.SECONDS));
+            try {
+                userMessage.delete().queueAfter(deleteTime, TimeUnit.SECONDS);
+            } catch (Exception e) {
+            }
             return;
         }
-        event.getMessage().replyEmbeds(
-                ColorUtil.NORMAL.getEmbedMessage("Jasper⛏Project Command list" + (isNoArgs ? "" : argsPrefix))
-                        .setDescription(toShow).setFooter("Halaman " + (++pageIndex) + '/' + maxPage).build())
-                .queue();
+        argumentNotValid(event.getMessage(),
+                ColorUtil.ERROR.getEmbedMessage("Jasper⛏Project Command list ~~" + argsPrefix + "~~")
+                        .setDescription("Tidak ada command \"" + argsPrefix +
+                                "\", lihat !jhelp untuk list command"));
     }
 
     private static void argumentNotValid(@NotNull Message msg, @Nullable EmbedBuilder embed) {

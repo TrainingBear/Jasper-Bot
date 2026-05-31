@@ -5,20 +5,24 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BinaryOperator;
 
+import org.w3c.dom.Notation;
+
 public final class Test {
     final private static BigDecimal PI = new BigDecimal(Math.PI), E = new BigDecimal(Math.E);
     final static Map<String, Notation> notationsMap = Map.of(
             "pi", (a, b, c) -> PI, "e", (a, b, c) -> E);
 
     public static void main(String[] args) {
-        InputWrapper input = new InputWrapper("sqrt(2");
+        InputWrapper input = new InputWrapper("sqrt(2)/2");
         System.out.println("INPUT: " + input.input);
+        final long startTime;
         BigDecimal output;
         try {
             char c;
             for (int i = 0; i < input.input.length(); i++)
                 if (Character.isWhitespace(c = input.input.charAt(i)) || c == '\'')
                     input.input.deleteCharAt(i--);
+            startTime = System.currentTimeMillis();
             output = handleScope(input, false)
                     .setScale(10, RoundingMode.FLOOR)
                     .stripTrailingZeros();
@@ -30,7 +34,8 @@ public final class Test {
             e.printStackTrace();
             return;
         }
-        System.out.println("OUTPUT: " + output.toPlainString());
+        System.out.println("OUTPUT: " + output.toPlainString() + "\nTime: " +
+                (System.currentTimeMillis() - startTime) + "ms");
     }
 
     private static class ScopeContainer {
@@ -44,7 +49,7 @@ public final class Test {
         }
     }
 
-    private static BigDecimal handleScope(/* NOT NULL */InputWrapper iw, final boolean hasClosedParam) {
+    private static BigDecimal handleScope(InputWrapper iw, final boolean hasClosedParam) {
         if (hasClosedParam && iw.index >= iw.input.length())
             iw.createError("There is nothing to be calculate", --iw.index);
         ScopeContainer sc = new ScopeContainer(iw.index);
@@ -75,6 +80,8 @@ public final class Test {
                                 : sc.ASOperator.apply(sc.totalValue, sc.termsScope);
                         sc.ASOperator = sc.operator;
                         sc.termsScope = BigDecimal.ZERO; // = 0
+                        sc.operator = null;
+                        sc.isFront = true;
                     }
                     continue;
                 }
@@ -140,7 +147,7 @@ public final class Test {
         } else if ((notation = FunctionEnum.map.get(letterNotation)) != null) {
             if (++iw.index >= iw.input.length() || iw.input.charAt(iw.index) != '(')
                 iw.createError("Expected '(' after a function name", --iw.index);
-            countTotal = notation.apply(null, sc, handleScope(iw, true));
+            countTotal = notation.apply(null, sc, handleScope(iw.addIndex(), true));
         } else {
             iw.createError("Unknown notation or function name, could be a typo?", fIndexChar);
             return null;
@@ -247,6 +254,7 @@ public final class Test {
 
         CEIL((iw, sc, cv) -> cv.setScale(0, RoundingMode.CEILING), "ceil"),
         FLR((iw, sc, cv) -> cv.setScale(0, RoundingMode.FLOOR), "flr"),
+        RND((iw, sc, cv) -> cv.setScale(0, RoundingMode.HALF_UP), "rnd"),
 
         SIN((iw, sc, cv) -> new BigDecimal(Math.sin(cv.doubleValue())), "sin"),
         COS((iw, sc, cv) -> new BigDecimal(Math.cos(cv.doubleValue())), "cos"),
@@ -273,13 +281,13 @@ public final class Test {
     }
 
     private static enum SuffixEnum {
-        THOUSAND((iw, sc, cv) -> cv.multiply(BigDecimal.valueOf(1000)), 'k'),
-        MILLION((iw, sc, cv) -> cv.multiply(BigDecimal.valueOf(1000000)), 'm'),
-        BILLION((iw, sc, cv) -> cv.multiply(BigDecimal.valueOf(1000000000)), 'b'),
-        TRILLION((iw, sc, cv) -> cv.multiply(BigDecimal.valueOf(1000000000000L)), 't'),
+        THOUSAND((iw, sc, cv) -> cv.movePointRight(3), 'k'),
+        MILLION((iw, sc, cv) -> cv.movePointRight(6), 'm'),
+        BILLION((iw, sc, cv) -> cv.movePointRight(9), 'b'),
+        TRILLION((iw, sc, cv) -> cv.movePointRight(12), 't'),
         FACTORIAL((iw, sc, cv) -> {
             if (cv.stripTrailingZeros().scale() > 0)
-                iw.createError("Factorial can not be done with decimal numbers!", null);
+                iw.createError("Factorial can only be done with integer numbers!", null);
             if (cv.compareTo(new BigDecimal("20")) > 0)
                 iw.createError("Factorial is too large!", null);
             BigDecimal hasil = BigDecimal.ONE;
@@ -287,13 +295,12 @@ public final class Test {
                 hasil = hasil.multiply(BigDecimal.valueOf(i));
             return cv.signum() < 0/* is negative */ ? hasil.negate() : hasil;
         }, '!'),
-        // PERCENTAGE((iw, sc, cv) -> {
-        // if (sc.operator == OperatorEnum.MULTIPLY || sc.operator ==
-        // OperatorEnum.DIVIDE
-        // || sc.operator == OperatorEnum.MODULUS)
-        // return cv.divide(BigDecimal.valueOf(100));
-        // return BigDecimal.ZERO;// TODO Later
-        // }, '%'),
+        PERCENTAGE((iw, sc, cv) -> {
+            final BigDecimal pct = cv.movePointLeft(2);// cv / 100
+            return sc.ASOperator == OperatorEnum.ADD || sc.ASOperator == OperatorEnum.SUBTRACT
+                    ? sc.totalValue.multiply(pct)
+                    : pct;
+        }, '%'),
         POWER((iw, sc, cv) -> {
             if (++iw.index >= iw.input.length())
                 iw.createError("No another number/math notation to be calculate for power ^", --iw.index);

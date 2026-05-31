@@ -12,12 +12,15 @@ import java.util.function.BinaryOperator;
 import org.jetbrains.annotations.NotNull;
 import jasper.feature.Help.FeatureContainer;
 import jasper.featureData.ColorUtil;
+import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
+import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 
 public final class Calculator implements FeatureInterface {
 
@@ -38,29 +41,48 @@ public final class Calculator implements FeatureInterface {
                         [ `;` ] Modulus/sisa
                         [ `(\uD835\uDC5B)` ] Tanda kurung
                         [ `a^b` ] Perpangkatan
-                        [ `sqrt(\uD835\uDC5B)` ] Akar kuadrat
-                        [ `cbrt(\uD835\uDC5B)` ] Akar kubik
+                        [ \uD835\uDC5B`!` ] Pemfaktorial
+                        [ `pi` ] Pi/π (3.14≈)  [ `e` ] e *konstanta* (2.71≈)
+                        [ \uD835\uDC5B`%` ] Persentase
+                        **Suffix:** *satuan*
+                        [ \uD835\uDC5B`k` ] seribu [ \uD835\uDC5B`m` ] sejuta
+                        [ \uD835\uDC5B`b` ] semilyar [ \uD835\uDC5B`t` ] setriliun
                         """, """
                         🔢 Kalkulator matematika
                         *Tidak support aljabar*
                         **List/daftar operator:**
-                        [ `\uD835\uDC5B!` ] Pemfaktorial
-                        [ `pi`/`π` ] Pi (3.14≈)  [ `e` ] e *konstanta* (2.71≈)
-                        [ `\uD835\uDC5B%` ] Persentase (belum ditambahkan)
-                        **Suffix:** *satuan*
-                        [ \uD835\uDC5B`k` ] seribu [ \uD835\uDC5B`m` ] sejuta
-                        [ \uD835\uDC5B`b` ] semilyar [ \uD835\uDC5B`t` ] setriliun
+                        [ `sqrt(\uD835\uDC5B)` ] Akar kuadrat
+                        [ `cbrt(\uD835\uDC5B)` ] Akar kubik
+                        [ `logt(\uD835\uDC5B)` ] Logaritma basis 10
+                        [ `loge(\uD835\uDC5B)` ] Logaritma basis e (2.71≈)
+                        [ `ceil(\uD835\uDC5B)` ] Membulatkan angka desimal ke atas
+                        [ `flr(\uD835\uDC5B)` ] Membulatkan angka desimal ke bawah
+                        [ `rnd(\uD835\uDC5B)` ] Membulatkan angka ≥.5=↑ <.5=↓
+                        [ `abs(\uD835\uDC5B)` ] Mengubah angka menjadi selalu positif +
+                        [ `sin(\uD835\uDC5B)` ] Sinus (Sisi Depan)/(Sisi Miring) (memakai radian)
+                        [ `cos(\uD835\uDC5B)` ] Cosinus (Sisi Samping)/(Sisi Miring) (memakai radian)
+                        [ `tan(\uD835\uDC5B)` ] Tangen (Sisi Depan)/(Sisi Samping) (memakai radian)
+                        [ `rad(\uD835\uDC5B)` ] Mengubah angka menjadi radian
+                        [ `deg(\uD835\uDC5B)` ] Mengubah angka menjadi degree/derajat
                         """)));
         return new FeatureInterface.CommandInfoContainer(
                 "math", "Kalkulator matematika, tidak support aljabar",
                 options, List.of("math", "="));
     }
 
+    static final byte deleteErrorTime = 35;
+
     @Override
     public void handleCommand(SlashCommandInteractionEvent event) {
         final OptionMapping inputArg;
-        if ((inputArg = event.getOption("input")) != null)
-            event.replyEmbeds(calculate(inputArg.getAsString())).queue();
+        if ((inputArg = event.getOption("input")) == null)
+            return;
+
+        final MessageEmbed msge = calculate(inputArg.getAsString());
+        final ReplyCallbackAction mca = event.replyEmbeds(msge);
+
+        mca.queue(msge.getColorRaw() == ColorUtil.NORMAL.getColor() ? null
+                : message -> message.deleteOriginal().queueAfter(deleteErrorTime, TimeUnit.SECONDS));
     }
 
     @Override
@@ -74,17 +96,37 @@ public final class Calculator implements FeatureInterface {
         StringBuilder sb = new StringBuilder();
         for (final String s : args)
             sb.append(s);
-        event.getMessage().replyEmbeds(calculate(sb.toString())).queue();
+
+        final MessageEmbed msge = calculate(sb.toString());
+        final Message userMessage = event.getMessage();
+        final MessageCreateAction mca = userMessage.replyEmbeds(msge);
+
+        if (msge.getColorRaw() == ColorUtil.NORMAL.getColor())
+            mca.queue();
+        else {
+            mca.queue(message -> message.delete().queueAfter(deleteErrorTime, TimeUnit.SECONDS));
+            try {
+                userMessage.delete().queueAfter(deleteErrorTime, TimeUnit.SECONDS);
+            } catch (Exception ignored) {
+            }
+        }
     }
 
     private static MessageEmbed calculate(String inputString) {
         InputWrapper input = new InputWrapper(inputString);
         BigDecimal output;
         try {
+            char c;
+            for (int i = 0; i < input.input.length(); i++)
+                if (Character.isWhitespace(c = input.input.charAt(i)) || c == '\'')
+                    input.input.deleteCharAt(i--);
+            final long startTime = System.currentTimeMillis();
             output = handleScope(input, false)
                     .setScale(10, RoundingMode.FLOOR)
                     .stripTrailingZeros();
-            return ColorUtil.NORMAL.getEmbedMessage("Kalkulator")
+            final long elapsed = System.currentTimeMillis() - startTime;
+            return ColorUtil.NORMAL
+                    .getEmbedMessage("Kalkulator — " + elapsed + "ms") // Took
                     .setDescription("Hasil dari: " + input.input.toString().replace("*", "\\*") +
                             "\n```" + output.toPlainString() + "```")
                     .build();
@@ -111,7 +153,7 @@ public final class Calculator implements FeatureInterface {
         }
     }
 
-    private static BigDecimal handleScope(@NotNull InputWrapper iw, final boolean hasClosedParam) {
+    private static BigDecimal handleScope(InputWrapper iw, final boolean hasClosedParam) {
         if (hasClosedParam && iw.index >= iw.input.length())
             iw.createError("There is nothing to be calculate", --iw.index);
         ScopeContainer sc = new ScopeContainer(iw.index);
@@ -142,6 +184,8 @@ public final class Calculator implements FeatureInterface {
                                 : sc.ASOperator.apply(sc.totalValue, sc.termsScope);
                         sc.ASOperator = sc.operator;
                         sc.termsScope = BigDecimal.ZERO; // = 0
+                        sc.operator = null;
+                        sc.isFront = true;
                     }
                     continue;
                 }
@@ -207,7 +251,7 @@ public final class Calculator implements FeatureInterface {
         } else if ((notation = FunctionEnum.map.get(letterNotation)) != null) {
             if (++iw.index >= iw.input.length() || iw.input.charAt(iw.index) != '(')
                 iw.createError("Expected '(' after a function name", --iw.index);
-            countTotal = notation.apply(null, sc, handleScope(iw, true));
+            countTotal = notation.apply(null, sc, handleScope(iw.addIndex(), true));
         } else {
             iw.createError("Unknown notation or function name, could be a typo?", fIndexChar);
             return null;
@@ -314,6 +358,7 @@ public final class Calculator implements FeatureInterface {
 
         CEIL((iw, sc, cv) -> cv.setScale(0, RoundingMode.CEILING), "ceil"),
         FLR((iw, sc, cv) -> cv.setScale(0, RoundingMode.FLOOR), "flr"),
+        RND((iw, sc, cv) -> cv.setScale(0, RoundingMode.HALF_UP), "rnd"),
 
         SIN((iw, sc, cv) -> new BigDecimal(Math.sin(cv.doubleValue())), "sin"),
         COS((iw, sc, cv) -> new BigDecimal(Math.cos(cv.doubleValue())), "cos"),
@@ -340,13 +385,13 @@ public final class Calculator implements FeatureInterface {
     }
 
     private static enum SuffixEnum {
-        THOUSAND((iw, sc, cv) -> cv.multiply(BigDecimal.valueOf(1000)), 'k'),
-        MILLION((iw, sc, cv) -> cv.multiply(BigDecimal.valueOf(1000000)), 'm'),
-        BILLION((iw, sc, cv) -> cv.multiply(BigDecimal.valueOf(1000000000)), 'b'),
-        TRILLION((iw, sc, cv) -> cv.multiply(BigDecimal.valueOf(1000000000000L)), 't'),
+        THOUSAND((iw, sc, cv) -> cv.movePointRight(3), 'k'),
+        MILLION((iw, sc, cv) -> cv.movePointRight(6), 'm'),
+        BILLION((iw, sc, cv) -> cv.movePointRight(9), 'b'),
+        TRILLION((iw, sc, cv) -> cv.movePointRight(12), 't'),
         FACTORIAL((iw, sc, cv) -> {
             if (cv.stripTrailingZeros().scale() > 0)
-                iw.createError("Factorial can not be done with decimal numbers!", null);
+                iw.createError("Factorial can only be done with integer numbers!", null);
             if (cv.compareTo(new BigDecimal("20")) > 0)
                 iw.createError("Factorial is too large!", null);
             BigDecimal hasil = BigDecimal.ONE;
@@ -354,13 +399,12 @@ public final class Calculator implements FeatureInterface {
                 hasil = hasil.multiply(BigDecimal.valueOf(i));
             return cv.signum() < 0/* is negative */ ? hasil.negate() : hasil;
         }, '!'),
-        // PERCENTAGE((iw, sc, cv) -> {
-        // if (sc.operator == OperatorEnum.MULTIPLY || sc.operator ==
-        // OperatorEnum.DIVIDE
-        // || sc.operator == OperatorEnum.MODULUS)
-        // return cv.divide(BigDecimal.valueOf(100));
-        // return BigDecimal.ZERO;// TODO Later
-        // }, '%'),
+        PERCENTAGE((iw, sc, cv) -> {
+            final BigDecimal pct = cv.movePointLeft(2);// cv / 100
+            return sc.ASOperator == OperatorEnum.ADD || sc.ASOperator == OperatorEnum.SUBTRACT
+                    ? sc.totalValue.multiply(pct)
+                    : pct;
+        }, '%'),
         POWER((iw, sc, cv) -> {
             if (++iw.index >= iw.input.length())
                 iw.createError("No another number/math notation to be calculate for power ^", --iw.index);
