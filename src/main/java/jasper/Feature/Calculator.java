@@ -10,6 +10,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BinaryOperator;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import jasper.feature.Help.FeatureContainer;
 import jasper.featureData.ColorUtil;
 import net.dv8tion.jda.api.entities.Message;
@@ -131,7 +133,8 @@ public final class Calculator implements FeatureInterface {
                             "\n```" + output.toPlainString() + "```")
                     .build();
         } catch (Exception e) {
-            input.input.insert(input.index, " __**").insert(input.index + 6, "**__ ")
+            System.out.println("[Log] Exception: " + e.getMessage());
+            input.input.insert(input.index, " __**").insert(input.endIndex + 6, "**__ ")
                     .append('\n').append(e.getMessage());
             return ColorUtil.ERROR.getEmbedMessage("**ERROR!** Kalkulator").setDescription(input.input.toString())
                     .build();
@@ -147,9 +150,21 @@ public final class Calculator implements FeatureInterface {
         OperatorEnum operator = null, ASOperator = null;
         BigDecimal totalValue = BigDecimal.ZERO, termsScope = BigDecimal.ZERO;
         final int startScope;
+        Integer optFirstInfo = null, optSecondInfo = null;
 
         private ScopeContainer(int startScope) {
             this.startScope = startScope;
+        }
+
+        private ScopeContainer setOptionalInfos(Integer first, Integer second) {
+            this.optFirstInfo = first;
+            this.optSecondInfo = second;
+            return this;
+        }
+
+        private void nullOptionalInfos() {
+            this.optFirstInfo = null;
+            this.optSecondInfo = null;
         }
     }
 
@@ -173,7 +188,8 @@ public final class Calculator implements FeatureInterface {
 
             } else if (Character.isDigit(c) || c == '.')
                 handleNumber(sc, iw, true);
-
+            else if (Character.isLetter(c))
+                handleLetter(sc, iw, true);
             else if ((sc.operator = OperatorEnum.map.get(c)) != null) {
                 if (++iw.index < iw.input.length() && OperatorEnum.map.containsKey(iw.input.charAt(iw.index)))
                     iw.createError("Illegal twice operator: " + iw.input.charAt(iw.index), iw.index);
@@ -198,8 +214,6 @@ public final class Calculator implements FeatureInterface {
                     default:
                         iw.createError("Illegal operator in the front", iw.index);
                 }
-            } else if (Character.isLetter(c)) {
-                handleLetter(sc, iw, true);
             } else {
                 final String errorMessage = "Unknown character/operator/notation/terms, could be unsupported symbol?";
                 iw.createError(errorMessage, iw.index);
@@ -211,21 +225,21 @@ public final class Calculator implements FeatureInterface {
 
     }
 
-    private static void handleParentheses(ScopeContainer sc, InputWrapper iW) {
+    private static void handleParentheses(ScopeContainer sc, InputWrapper iw) {
         BigDecimal totalCount;
         if (sc.operator == null) {
             sc.operator = OperatorEnum.MULTIPLY;
             sc.isDividing = false;
         }
-        final int parenErrorCheckPoint = iW.index++;
-        if ((totalCount = handleScope(iW, true)).signum() == 0 && sc.isDividing)
-            iW.createError("Cannot divide by 0", parenErrorCheckPoint);
+        final int parenErrorCheckPoint = iw.index++;
+        if ((totalCount = handleScope(iw, true)).signum() == 0 && sc.isDividing)
+            iw.createError("Cannot divide by 0", parenErrorCheckPoint, --iw.index);
         sc.termsScope = sc.operator.apply(sc.termsScope, totalCount);
         Notation suffix;
-        while (++iW.index < iW.input.length()
-                && (suffix = SuffixEnum.map.get(iW.input.charAt(iW.index))) != null)
-            totalCount = suffix.apply(iW, sc, totalCount);
-        iW.index--;
+        while (++iw.index < iw.input.length()
+                && (suffix = SuffixEnum.map.get(iw.input.charAt(iw.index))) != null)
+            totalCount = suffix.apply(iw, sc, totalCount);
+        iw.index--;
         if (sc.isFront) {
             sc.isFront = false;
             sc.termsScope = sc.isStartPlus ? totalCount : totalCount.negate();
@@ -238,7 +252,8 @@ public final class Calculator implements FeatureInterface {
         final int fIndexChar = iw.index;
         while (++iw.index < iw.input.length() && Character.isLetter(iw.input.charAt(iw.index)))
             ;
-        final String letterNotation = iw.input.substring(fIndexChar, iw.index--).toLowerCase();
+        final String letterNotation = iw.input.substring(fIndexChar, iw.index).toLowerCase();
+        final int eIndexChar = --iw.index;
         BigDecimal countTotal;
         Notation notation;
 
@@ -250,10 +265,12 @@ public final class Calculator implements FeatureInterface {
             countTotal = notation.apply(null, null, null);
         } else if ((notation = FunctionEnum.map.get(letterNotation)) != null) {
             if (++iw.index >= iw.input.length() || iw.input.charAt(iw.index) != '(')
-                iw.createError("Expected '(' after a function name", --iw.index);
-            countTotal = notation.apply(null, sc, handleScope(iw.addIndex(), true));
+                iw.createError("Expected '(' after a function name", fIndexChar, --iw.index);
+            countTotal = notation.apply(iw, sc.setOptionalInfos(fIndexChar, eIndexChar),
+                    handleScope(iw.addIndex(), true));
+            sc.nullOptionalInfos();
         } else {
-            iw.createError("Unknown notation or function name, could be a typo?", fIndexChar);
+            iw.createError("Unknown notation or function name, could be a typo?", fIndexChar, iw.index);
             return null;
         }
 
@@ -269,8 +286,8 @@ public final class Calculator implements FeatureInterface {
             sc.operator = OperatorEnum.MULTIPLY;
             sc.isDividing = false;
         }
-        if (countTotal.signum() == 0 && sc.isDividing)
-            iw.createError("Can not divide by 0", iw.index);
+        if (sc.isDividing && countTotal.signum() == 0) 
+            iw.createError("Can not divide by 0", fIndexChar, eIndexChar);
         sc.termsScope = sc.isFront ? (sc.isStartPlus ? countTotal : countTotal.negate())
                 : sc.operator.apply(sc.termsScope, countTotal);
         sc.operator = OperatorEnum.MULTIPLY;
@@ -300,18 +317,17 @@ public final class Calculator implements FeatureInterface {
                 && (suffix = SuffixEnum.map.get((c = iw.input.charAt(iw.index)))) != null)
             countTotal = suffix.apply(iw, sc, countTotal);
         iw.index--;
-        if (execOperator) {
-            if (sc.isDividing && countTotal.signum() == 0)
-                iw.createError("Cannot divide by 0", startNumber);
-            if (sc.operator != null)
-                sc.termsScope = sc.operator.apply(sc.termsScope, countTotal);
-            else if (sc.isFront)
-                sc.termsScope = sc.isStartPlus ? countTotal : countTotal.negate();
-            sc.operator = null;
-            sc.isFront = false;
-            return null;
-        }
-        return countTotal;
+        if (!execOperator)
+            return countTotal;
+        if (sc.isDividing && countTotal.signum() == 0)
+            iw.createError("Cannot divide by 0", startNumber, iw.index);
+        if (sc.operator != null)
+            sc.termsScope = sc.operator.apply(sc.termsScope, countTotal);
+        else if (sc.isFront)
+            sc.termsScope = sc.isStartPlus ? countTotal : countTotal.negate();
+        sc.operator = null;
+        sc.isFront = false;
+        return null;
     }
 
     private static boolean isDigitOrDot(final StringBuilder input, int nextIndex) {
@@ -322,7 +338,7 @@ public final class Calculator implements FeatureInterface {
 
     private static final class InputWrapper {
         public StringBuilder input;
-        public int index = 0;
+        public int index = 0, endIndex = 0;
 
         public InputWrapper(String input) {
             this.input = new StringBuilder(input);
@@ -333,14 +349,16 @@ public final class Calculator implements FeatureInterface {
             return this;
         }
 
-        /**
-         * 
-         * @param message
-         * @param whichIndex nullable
-         */
-        public void createError(final String message, final Integer whichIndex) {
+        public void createError(final String message, /* Nullable */final Integer whichIndex) {
             if (whichIndex != null)
                 this.index = whichIndex;
+            this.endIndex = this.index;
+            throw new RuntimeException(message);
+        }
+
+        public void createError(final String message, final int startIndex, final int endIndex) {
+            this.index = startIndex;
+            this.endIndex = endIndex;
             throw new RuntimeException(message);
         }
     }
@@ -350,7 +368,13 @@ public final class Calculator implements FeatureInterface {
     }
 
     private static enum FunctionEnum {
-        SQRT((iw, sc, cv) -> cv.sqrt(new MathContext(11)), "sqrt"),
+        SQRT((iw, sc, cv) -> {
+            if (cv.signum() <= -1)
+                iw.createError("Square root can not be calculate with negative numbers",
+                        sc.optFirstInfo, sc.optSecondInfo);
+            return cv.sqrt(new MathContext(11));
+        }, "sqrt"),
+
         CBRT((iw, sc, cv) -> new BigDecimal(Math.cbrt(cv.doubleValue())), "cbrt"),
 
         LOGT((iw, sc, cv) -> new BigDecimal(Math.log10(cv.doubleValue())), "logt"),
@@ -399,6 +423,7 @@ public final class Calculator implements FeatureInterface {
                 hasil = hasil.multiply(BigDecimal.valueOf(i));
             return cv.signum() < 0/* is negative */ ? hasil.negate() : hasil;
         }, '!'),
+
         PERCENTAGE((iw, sc, cv) -> {
             final BigDecimal pct = cv.movePointLeft(2);// cv / 100
             return sc.ASOperator == OperatorEnum.ADD || sc.ASOperator == OperatorEnum.SUBTRACT

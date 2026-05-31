@@ -5,15 +5,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BinaryOperator;
 
-import org.w3c.dom.Notation;
-
 public final class Test {
     final private static BigDecimal PI = new BigDecimal(Math.PI), E = new BigDecimal(Math.E);
     final static Map<String, Notation> notationsMap = Map.of(
             "pi", (a, b, c) -> PI, "e", (a, b, c) -> E);
 
     public static void main(String[] args) {
-        InputWrapper input = new InputWrapper("sqrt(2)/2");
+        InputWrapper input = new InputWrapper("24/sqrt(0)");
         System.out.println("INPUT: " + input.input);
         final long startTime;
         BigDecimal output;
@@ -29,7 +27,7 @@ public final class Test {
         } catch (Exception e) {
             System.out.println("ERROR WHILE ON INDEX: " + input.index);
             if (input.index < input.input.length())
-                input.input.insert(input.index, " ").insert(input.index + 2, " ");
+                input.input.insert(input.index, " ").insert(input.endIndex + 2, " ");
             System.out.println(input.input);
             e.printStackTrace();
             return;
@@ -43,9 +41,21 @@ public final class Test {
         OperatorEnum operator = null, ASOperator = null;
         BigDecimal totalValue = BigDecimal.ZERO, termsScope = BigDecimal.ZERO;
         final int startScope;
+        Integer optFirstInfo = null, optSecondInfo = null;
 
         private ScopeContainer(int startScope) {
             this.startScope = startScope;
+        }
+
+        private ScopeContainer setOptionalInfos(Integer first, Integer second) {
+            this.optFirstInfo = first;
+            this.optSecondInfo = second;
+            return this;
+        }
+
+        private void nullOptionalInfos() {
+            this.optFirstInfo = null;
+            this.optSecondInfo = null;
         }
     }
 
@@ -69,7 +79,8 @@ public final class Test {
 
             } else if (Character.isDigit(c) || c == '.')
                 handleNumber(sc, iw, true);
-
+            else if (Character.isLetter(c))
+                handleLetter(sc, iw, true);
             else if ((sc.operator = OperatorEnum.map.get(c)) != null) {
                 if (++iw.index < iw.input.length() && OperatorEnum.map.containsKey(iw.input.charAt(iw.index)))
                     iw.createError("Illegal twice operator: " + iw.input.charAt(iw.index), iw.index);
@@ -94,8 +105,6 @@ public final class Test {
                     default:
                         iw.createError("Illegal operator in the front", iw.index);
                 }
-            } else if (Character.isLetter(c)) {
-                handleLetter(sc, iw, true);
             } else {
                 final String errorMessage = "Unknown character/operator/notation/terms, could be unsupported symbol?";
                 iw.createError(errorMessage, iw.index);
@@ -107,21 +116,21 @@ public final class Test {
 
     }
 
-    private static void handleParentheses(ScopeContainer sc, InputWrapper iW) {
+    private static void handleParentheses(ScopeContainer sc, InputWrapper iw) {
         BigDecimal totalCount;
         if (sc.operator == null) {
             sc.operator = OperatorEnum.MULTIPLY;
             sc.isDividing = false;
         }
-        final int parenErrorCheckPoint = iW.index++;
-        if ((totalCount = handleScope(iW, true)).signum() == 0 && sc.isDividing)
-            iW.createError("Cannot divide by 0", parenErrorCheckPoint);
+        final int parenErrorCheckPoint = iw.index++;
+        if ((totalCount = handleScope(iw, true)).signum() == 0 && sc.isDividing)
+            iw.createError("Cannot divide by 0", parenErrorCheckPoint, --iw.index);
         sc.termsScope = sc.operator.apply(sc.termsScope, totalCount);
         Notation suffix;
-        while (++iW.index < iW.input.length()
-                && (suffix = SuffixEnum.map.get(iW.input.charAt(iW.index))) != null)
-            totalCount = suffix.apply(iW, sc, totalCount);
-        iW.index--;
+        while (++iw.index < iw.input.length()
+                && (suffix = SuffixEnum.map.get(iw.input.charAt(iw.index))) != null)
+            totalCount = suffix.apply(iw, sc, totalCount);
+        iw.index--;
         if (sc.isFront) {
             sc.isFront = false;
             sc.termsScope = sc.isStartPlus ? totalCount : totalCount.negate();
@@ -134,7 +143,8 @@ public final class Test {
         final int fIndexChar = iw.index;
         while (++iw.index < iw.input.length() && Character.isLetter(iw.input.charAt(iw.index)))
             ;
-        final String letterNotation = iw.input.substring(fIndexChar, iw.index--).toLowerCase();
+        final String letterNotation = iw.input.substring(fIndexChar, iw.index).toLowerCase();
+        final int eIndexChar = --iw.index;
         BigDecimal countTotal;
         Notation notation;
 
@@ -146,10 +156,12 @@ public final class Test {
             countTotal = notation.apply(null, null, null);
         } else if ((notation = FunctionEnum.map.get(letterNotation)) != null) {
             if (++iw.index >= iw.input.length() || iw.input.charAt(iw.index) != '(')
-                iw.createError("Expected '(' after a function name", --iw.index);
-            countTotal = notation.apply(null, sc, handleScope(iw.addIndex(), true));
+                iw.createError("Expected '(' after a function name", fIndexChar, --iw.index);
+            countTotal = notation.apply(iw, sc.setOptionalInfos(fIndexChar, eIndexChar),
+                    handleScope(iw.addIndex(), true));
+            sc.nullOptionalInfos();
         } else {
-            iw.createError("Unknown notation or function name, could be a typo?", fIndexChar);
+            iw.createError("Unknown notation or function name, could be a typo?", fIndexChar, iw.index);
             return null;
         }
 
@@ -165,8 +177,8 @@ public final class Test {
             sc.operator = OperatorEnum.MULTIPLY;
             sc.isDividing = false;
         }
-        if (countTotal.signum() == 0 && sc.isDividing)
-            iw.createError("Can not divide by 0", iw.index);
+        if (sc.isDividing && countTotal.signum() == 0) 
+            iw.createError("Can not divide by 0", fIndexChar, eIndexChar);
         sc.termsScope = sc.isFront ? (sc.isStartPlus ? countTotal : countTotal.negate())
                 : sc.operator.apply(sc.termsScope, countTotal);
         sc.operator = OperatorEnum.MULTIPLY;
@@ -196,18 +208,17 @@ public final class Test {
                 && (suffix = SuffixEnum.map.get((c = iw.input.charAt(iw.index)))) != null)
             countTotal = suffix.apply(iw, sc, countTotal);
         iw.index--;
-        if (execOperator) {
-            if (sc.isDividing && countTotal.signum() == 0)
-                iw.createError("Cannot divide by 0", startNumber);
-            if (sc.operator != null)
-                sc.termsScope = sc.operator.apply(sc.termsScope, countTotal);
-            else if (sc.isFront)
-                sc.termsScope = sc.isStartPlus ? countTotal : countTotal.negate();
-            sc.operator = null;
-            sc.isFront = false;
-            return null;
-        }
-        return countTotal;
+        if (!execOperator)
+            return countTotal;
+        if (sc.isDividing && countTotal.signum() == 0)
+            iw.createError("Cannot divide by 0", startNumber, iw.index);
+        if (sc.operator != null)
+            sc.termsScope = sc.operator.apply(sc.termsScope, countTotal);
+        else if (sc.isFront)
+            sc.termsScope = sc.isStartPlus ? countTotal : countTotal.negate();
+        sc.operator = null;
+        sc.isFront = false;
+        return null;
     }
 
     private static boolean isDigitOrDot(final StringBuilder input, int nextIndex) {
@@ -218,7 +229,7 @@ public final class Test {
 
     private static final class InputWrapper {
         public StringBuilder input;
-        public int index = 0;
+        public int index = 0, endIndex = 0;
 
         public InputWrapper(String input) {
             this.input = new StringBuilder(input);
@@ -229,14 +240,16 @@ public final class Test {
             return this;
         }
 
-        /**
-         * 
-         * @param message
-         * @param whichIndex nullable
-         */
-        public void createError(final String message, final Integer whichIndex) {
+        public void createError(final String message, /* Nullable */final Integer whichIndex) {
             if (whichIndex != null)
                 this.index = whichIndex;
+            this.endIndex = this.index;
+            throw new RuntimeException(message);
+        }
+
+        public void createError(final String message, final int startIndex, final int endIndex) {
+            this.index = startIndex;
+            this.endIndex = endIndex;
             throw new RuntimeException(message);
         }
     }
@@ -246,7 +259,13 @@ public final class Test {
     }
 
     private static enum FunctionEnum {
-        SQRT((iw, sc, cv) -> cv.sqrt(new MathContext(11)), "sqrt"),
+        SQRT((iw, sc, cv) -> {
+            if (cv.signum() <= -1)
+                iw.createError("Square root can not be calculate with negative numbers",
+                        sc.optFirstInfo, sc.optSecondInfo);
+            return cv.sqrt(new MathContext(11));
+        }, "sqrt"),
+
         CBRT((iw, sc, cv) -> new BigDecimal(Math.cbrt(cv.doubleValue())), "cbrt"),
 
         LOGT((iw, sc, cv) -> new BigDecimal(Math.log10(cv.doubleValue())), "logt"),
@@ -295,6 +314,7 @@ public final class Test {
                 hasil = hasil.multiply(BigDecimal.valueOf(i));
             return cv.signum() < 0/* is negative */ ? hasil.negate() : hasil;
         }, '!'),
+
         PERCENTAGE((iw, sc, cv) -> {
             final BigDecimal pct = cv.movePointLeft(2);// cv / 100
             return sc.ASOperator == OperatorEnum.ADD || sc.ASOperator == OperatorEnum.SUBTRACT
