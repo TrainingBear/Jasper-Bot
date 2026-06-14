@@ -13,6 +13,8 @@ repositories {
 dependencies {
     implementation("net.dv8tion:JDA:5.3.0")
     implementation("org.slf4j:slf4j-simple:2.0.13")
+    implementation("org.xerial:sqlite-jdbc:3.53.2.0")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.22.0")
 }
 
 tasks.jar {

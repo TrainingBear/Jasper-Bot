@@ -2,6 +2,7 @@ package jasper;
 
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
@@ -10,10 +11,10 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
-import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
@@ -25,9 +26,10 @@ import org.jetbrains.annotations.Nullable;
 
 import jasper.feature.FeatureInterface;
 import jasper.feature.Help;
-import jasper.feature.Math;
+import jasper.feature.Weather;
+import jasper.Util.JsonConfig;
+import jasper.feature.Calculator;
 import kotlin.Pair;
-import kotlin.Triple;
 
 public final class Main extends ListenerAdapter {
     final public static String OBFUSCATED_EMOJI_1 = "<a:obfuscated1:1345042468558602281>",
@@ -39,17 +41,22 @@ public final class Main extends ListenerAdapter {
     public static Guild guild;
     public static TextChannel logChannel;
     public static Random random = new Random();
+
+    public static JsonConfig jsCfg = new JsonConfig(null, null, true, true);
+
+    public static byte ERROR_DELETE_TIME = 35;
+
     @NotNull
-    public static List<Pair<List<String>, FeatureInterface>> messageCommandMapping = new ArrayList<>();
+    public final static List<Pair<List<String>, FeatureInterface>> messageCommandMapping = new ArrayList<>();
     @NotNull
-    public static HashMap<String, FeatureInterface> commandMapping = new HashMap<>();
+    public final static HashMap<String, FeatureInterface> commandMapping = new HashMap<>();
 
     public static void main(String[] args) throws LoginException {
         System.out.println("[Log] Starting Bot...");
         JDA jda = JDABuilder.createDefault(System.getenv("DISCORD_TOKEN"))
                 .enableIntents(GatewayIntent.MESSAGE_CONTENT, GatewayIntent.GUILD_MEMBERS)
                 .setActivity(null)
-                // .setActivity(Activity.customStatus("/jhelp ♦️ ⛏"))
+                .setActivity(Activity.customStatus("/jhelp ♦️ ⛏"))
                 .build();
         jda.addEventListener(new Main());
         System.out.println("[Log] Finished Starting Bot...");
@@ -68,6 +75,42 @@ public final class Main extends ListenerAdapter {
             System.err.println("[Log](replacement, channel is null): " + log);
     }
 
+    /**
+     * Format/strip trailing on double
+     * <p>
+     * Example:
+     * 234.211 strip with 2 digits after . (followZero false): 234.21; <br>
+     * or 5 digits followZero true: 234.21100
+     * </p>
+     * 
+     * @return
+     */
+    public static String subDigit(final double d, int howMany, final boolean followZero) {
+        String decimal = String.valueOf(d);
+        int i = 0, dotIndex = decimal.length();
+        for (; i < decimal.length(); i++) {
+            final char c = decimal.charAt(i);
+            if (c == '.') {
+                dotIndex = i;
+                continue;
+            }
+            if (dotIndex == decimal.length())
+                continue;
+            if (--howMany <= 0)
+                break;
+        }
+        final boolean decimalBlank = dotIndex == decimal.length() - 2 && decimal.charAt(decimal.length() - 1) == '0';
+        if (decimalBlank)
+            howMany++;
+        decimal = howMany <= -1 ? decimal.substring(0, decimal.length() - 1)
+                : decimal.substring(0, decimalBlank ? decimal.length() - 2
+                        : ++i >= decimal.length() ? decimal.length() : i);
+        if (followZero && dotIndex != decimal.length() && howMany >= 1)
+            for (; howMany > 0; howMany--)
+                decimal += '0';
+        return decimal;
+    }
+
     @Override
     public void onReady(@NotNull ReadyEvent event) {
         System.out.println("[Log] Start of ready...");
@@ -78,20 +121,23 @@ public final class Main extends ListenerAdapter {
         if (logChannel == null)
             sendLog("Log channel is null, logs will not be displayed!!!");
 
-        FeatureInterface[] toInserts = {
-                new Math(), new Help()
+        FeatureInterface[] toInserts = { // * Do not forget insert features here
+                new Calculator(),
+                new Weather(),
+
+                new Help()
         };
         for (FeatureInterface i : toInserts) {
-            Triple<Pair<String, String>, OptionData, List<String>> infos = i.commandInsert();
-            guild.upsertCommand(infos.getFirst().getFirst(), infos.getFirst().getSecond())
-                    .addOptions(infos.getSecond()).queue();
-            commandMapping.put(infos.getFirst().getFirst(), i);
+            final FeatureInterface.CommandInfoContainer infos = i.commandInsert();
+            guild.upsertCommand(infos.commandPrefix, infos.commandDesc)
+                    .addOptions(infos.optionData).queue();
+            commandMapping.put(infos.commandPrefix, i);
 
-            if (infos.getThird() != null)
-                messageCommandMapping.add(new Pair<List<String>, FeatureInterface>(infos.getThird(), i));
+            if (infos.msgCommandAliases != null)
+                messageCommandMapping.add(new Pair<List<String>, FeatureInterface>(infos.msgCommandAliases, i));
             System.out.println(
-                    "[Log] Inserting " + (infos.getThird() != null ? "message command and " : "")
-                            + "command handler of " + infos.getFirst().getFirst());
+                    "[Log] Inserting " + (infos.msgCommandAliases != null ? "message command and " : "")
+                            + "command handler of " + infos.commandPrefix);
         }
         System.out.println("[Log] Finished Start of ready...");
     }
@@ -118,20 +164,23 @@ public final class Main extends ListenerAdapter {
         if (event.getAuthor().isBot() || !event.isFromGuild() || (!rawMessage.startsWith("!") && !startWithEqual))
             return;
 
-        final String[] argsRaw = rawMessage.split("\\s+");
-        if (startWithEqual && !argsRaw[0].equals("="))
-            return;
-        final String prefix = startWithEqual ? argsRaw[0] : argsRaw[0].substring(1);
+        final List<String> argsRaw = new ArrayList<>(Arrays.asList(rawMessage.split("\\s+")));
+        if (startWithEqual && argsRaw.getFirst().length() != 1) {
+            argsRaw.set(0, argsRaw.getFirst().substring(1));
+            argsRaw.add(0, "=");
+        }
+        final String prefix = startWithEqual ? argsRaw.getFirst() : argsRaw.getFirst().substring(1);
         if (prefix.isEmpty())
             return;
 
         for (Pair<List<String>, FeatureInterface> i : messageCommandMapping) {
             if (!i.getFirst().contains(prefix))
                 continue;
-            String[] args = new String[argsRaw.length - 1];
-            System.arraycopy(argsRaw, 1, args, 0, argsRaw.length - 1);
-            i.getSecond().handleCommandMessage(event, args);
+            String[] args = new String[argsRaw.size() - 1]; // removing prefix, to fresh just only arg's
+            System.arraycopy(argsRaw.toArray(String[]::new), 1, args, 0, argsRaw.size() - 1);
+
             sendLog(event.getAuthor().getName() + " in " + event.getChannel().getName() + " sending: " + rawMessage);
+            i.getSecond().handleCommandMessage(event, args);
             return;
         }
     }
