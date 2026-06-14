@@ -75,3 +75,6 @@ replay_pid*
 
 /build/
 **/out/
+
+.idea/
+.vscode/
