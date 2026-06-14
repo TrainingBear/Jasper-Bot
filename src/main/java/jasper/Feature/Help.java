@@ -4,7 +4,6 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.api.exceptions.ContextException;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 
@@ -43,11 +42,12 @@ public final class Help implements FeatureInterface {
 
     @Override
     public @NotNull CommandInfoContainer commandInsert() {
-        OptionData options = new OptionData(OptionType.STRING,
+        OptionData optHelpType = new OptionData(OptionType.STRING,
                 "help_type", "Penjelasan command lebih lanjut", false);
-        // TODO add options to other features
+        for (final FeatureContainer i : otherFeatures)
+            optHelpType.addChoice(i.prefixes.getFirst(), i.prefixes.getFirst());
         return new FeatureInterface.CommandInfoContainer(
-                "jhelp", "Daftar `!` command", options, List.of("jhelp", "jh"));
+                "jhelp", "Daftar `!` command", List.of("jhelp", "jh"), optHelpType);
     }
 
     @Override
@@ -71,7 +71,7 @@ public final class Help implements FeatureInterface {
             argumentNotValid(event.getMessage(), null);
             return;
         }
-        final String argsPrefix = isNoArgs ? "" : args[0];
+        final String argsPrefix = isNoArgs ? null : args[0];
         StringBuilder toShow = new StringBuilder();
 
         for (final FeatureContainer i : otherFeatures) {
@@ -89,7 +89,7 @@ public final class Help implements FeatureInterface {
             final Message userMessage = event.getMessage();
             final short deleteTime = 150;
             userMessage.replyEmbeds(
-                    ColorUtil.NORMAL.getEmbedMessage("Jasper⛏Project Command list" + (isNoArgs ? "" : argsPrefix))
+                    ColorUtil.NORMAL.getEmbedMessage("Jasper⛏Project Command list " + (isNoArgs ? "" : argsPrefix))
                             .setDescription(toShow).setFooter("Halaman " + (++pageIndex) + '/' + maxPage).build())
                     .queue(message -> message.delete().queueAfter(deleteTime, TimeUnit.SECONDS));
             try {

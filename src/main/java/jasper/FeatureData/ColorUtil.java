@@ -9,7 +9,8 @@ public enum ColorUtil {
     ERROR(0xab00ff),
     TRUE(0xff00f9),
     FALSE(0xff0089),
-    TIMEOUT(0xab5291);
+    TIMEOUT(0xab5291),
+    WAITING(0x850d5b);
 
     private final int color;
 

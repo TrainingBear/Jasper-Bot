@@ -9,9 +9,11 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BinaryOperator;
 
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import org.jetbrains.annotations.NotNull;
+
+import jasper.Main;
 import jasper.feature.Help.FeatureContainer;
 import jasper.featureData.ColorUtil;
 import net.dv8tion.jda.api.entities.Message;
@@ -22,7 +24,6 @@ import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
-import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 
 public final class Calculator implements FeatureInterface {
 
@@ -30,8 +31,9 @@ public final class Calculator implements FeatureInterface {
     public FeatureInterface.CommandInfoContainer commandInsert() {
         OptionData options = new OptionData(OptionType.STRING,
                 "input", "Masukkan input untuk dikalkulasi,", true);
+        final List<String> prefixAliases = List.of("math", "=");
         Help.inputFeature(new FeatureContainer(
-                List.of("math", "="),
+                prefixAliases,
                 "🔢 **!math** _atau_ **=**",
                 "Kalkulator matematika",
                 List.of("""
@@ -68,11 +70,9 @@ public final class Calculator implements FeatureInterface {
                         [ `deg(\uD835\uDC5B)` ] Mengubah angka menjadi degree/derajat
                         """)));
         return new FeatureInterface.CommandInfoContainer(
-                "math", "Kalkulator matematika, tidak support aljabar",
-                options, List.of("math", "="));
+                "math", "Kalkulator matematika, tidak support aljabar", prefixAliases,
+                options);
     }
-
-    static final byte deleteErrorTime = 35;
 
     @Override
     public void handleCommand(SlashCommandInteractionEvent event) {
@@ -81,10 +81,8 @@ public final class Calculator implements FeatureInterface {
             return;
 
         final MessageEmbed msge = calculate(inputArg.getAsString());
-        final ReplyCallbackAction mca = event.replyEmbeds(msge);
-
-        mca.queue(msge.getColorRaw() == ColorUtil.NORMAL.getColor() ? null
-                : message -> message.deleteOriginal().queueAfter(deleteErrorTime, TimeUnit.SECONDS));
+        event.replyEmbeds(msge).queue(msge.getColorRaw() == ColorUtil.NORMAL.getColor() ? null
+                : message -> message.deleteOriginal().queueAfter(Main.ERROR_DELETE_TIME, TimeUnit.SECONDS));
     }
 
     @Override
@@ -106,15 +104,15 @@ public final class Calculator implements FeatureInterface {
         if (msge.getColorRaw() == ColorUtil.NORMAL.getColor())
             mca.queue();
         else {
-            mca.queue(message -> message.delete().queueAfter(deleteErrorTime, TimeUnit.SECONDS));
+            mca.queue(message -> message.delete().queueAfter(Main.ERROR_DELETE_TIME, TimeUnit.SECONDS));
             try {
-                userMessage.delete().queueAfter(deleteErrorTime, TimeUnit.SECONDS);
+                userMessage.delete().queueAfter(Main.ERROR_DELETE_TIME, TimeUnit.SECONDS);
             } catch (Exception ignored) {
             }
         }
     }
 
-    private static MessageEmbed calculate(String inputString) {
+    private static MessageEmbed calculate(@NotNull String inputString) {
         InputWrapper input = new InputWrapper(inputString);
         BigDecimal output;
         try {
@@ -136,11 +134,13 @@ public final class Calculator implements FeatureInterface {
             System.out.println("[Log] Exception: " + e.getMessage());
             input.input.insert(input.index, " __**").insert(input.endIndex + 6, "**__ ")
                     .append('\n').append(e.getMessage());
-            return ColorUtil.ERROR.getEmbedMessage("**ERROR!** Kalkulator").setDescription(input.input.toString())
+            return ColorUtil.ERROR.getEmbedMessage("**ERROR!** Kalkulator")
+                    .setDescription(input.input.toString())
                     .build();
         }
     }
 
+    /** Constant */
     final private static BigDecimal PI = new BigDecimal(Math.PI), E = new BigDecimal(Math.E);
     final static Map<String, Notation> notationsMap = Map.of(
             "pi", (a, b, c) -> PI, "e", (a, b, c) -> E);
@@ -168,7 +168,7 @@ public final class Calculator implements FeatureInterface {
         }
     }
 
-    private static BigDecimal handleScope(InputWrapper iw, final boolean hasClosedParam) {
+    private static BigDecimal handleScope(@NotNull InputWrapper iw, final boolean hasClosedParam) {
         if (hasClosedParam && iw.index >= iw.input.length())
             iw.createError("There is nothing to be calculate", --iw.index);
         ScopeContainer sc = new ScopeContainer(iw.index);
@@ -225,7 +225,7 @@ public final class Calculator implements FeatureInterface {
 
     }
 
-    private static void handleParentheses(ScopeContainer sc, InputWrapper iw) {
+    private static void handleParentheses(@NotNull ScopeContainer sc, @NotNull InputWrapper iw) {
         BigDecimal totalCount;
         if (sc.operator == null) {
             sc.operator = OperatorEnum.MULTIPLY;
@@ -248,7 +248,8 @@ public final class Calculator implements FeatureInterface {
         sc.isDividing = false;
     }
 
-    private static BigDecimal handleLetter(ScopeContainer sc, InputWrapper iw, final boolean execOperator) {
+    private static BigDecimal handleLetter(@NotNull ScopeContainer sc, @NotNull InputWrapper iw,
+            final boolean execOperator) {
         final int fIndexChar = iw.index;
         while (++iw.index < iw.input.length() && Character.isLetter(iw.input.charAt(iw.index)))
             ;
@@ -286,7 +287,7 @@ public final class Calculator implements FeatureInterface {
             sc.operator = OperatorEnum.MULTIPLY;
             sc.isDividing = false;
         }
-        if (sc.isDividing && countTotal.signum() == 0) 
+        if (sc.isDividing && countTotal.signum() == 0)
             iw.createError("Can not divide by 0", fIndexChar, eIndexChar);
         sc.termsScope = sc.isFront ? (sc.isStartPlus ? countTotal : countTotal.negate())
                 : sc.operator.apply(sc.termsScope, countTotal);
@@ -296,7 +297,8 @@ public final class Calculator implements FeatureInterface {
         return null;
     }
 
-    private static BigDecimal handleNumber(ScopeContainer sc, InputWrapper iw, final boolean execOperator) {
+    private static BigDecimal handleNumber(@NotNull ScopeContainer sc, @NotNull InputWrapper iw,
+            final boolean execOperator) {
         boolean hasDecimalDotPassed = false;
         final int startNumber = iw.index;
         char c = '\0';
@@ -349,14 +351,14 @@ public final class Calculator implements FeatureInterface {
             return this;
         }
 
-        public void createError(final String message, /* Nullable */final Integer whichIndex) {
+        public void createError(final String message, @Nullable final Integer whichIndex) {
             if (whichIndex != null)
                 this.index = whichIndex;
             this.endIndex = this.index;
             throw new RuntimeException(message);
         }
 
-        public void createError(final String message, final int startIndex, final int endIndex) {
+        public void createError(final String message, @NotNull final int startIndex, @NotNull final int endIndex) {
             this.index = startIndex;
             this.endIndex = endIndex;
             throw new RuntimeException(message);

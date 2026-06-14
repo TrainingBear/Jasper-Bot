@@ -1,293 +1,267 @@
 package jasper.feature;
 
-// import net.dv8tion.jda.api.EmbedBuilder;
-// import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
-// import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-// import org.json.simple.JSONArray;
-// import org.json.simple.JSONObject;
-// import org.json.simple.parser.JSONParser;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.text.Normalizer;
+import java.util.List;
+import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
-// import java.io.InputStreamReader;
-// import java.net.HttpURLConnection;
-// import java.net.URI;
-// import java.util.Timer;
-// import java.util.TimerTask;
-// import java.util.concurrent.TimeUnit;
+import javax.net.ssl.HttpsURLConnection;
 
-public final class Weather {
-    // static String wclouddesc,wcityname,wcountryname;
-    // static long whumidity,wcloudcover,wtimezone,wpressure;
-    // static double wtemp,wwindspeed,wvisibility,wtempfeels;
-    // static short weatherrrorcode;
+import org.jetbrains.annotations.Nullable;
 
-    // public static void weathercommand(MessageReceivedEvent event, String city){
-    //     if(!weathercdboolean) {
-    //         weathercdboolean = true;
-    //         Timer weathercd = new Timer();
-    //         weathercd.schedule(new TimerTask() {
-    //             @Override
-    //             public void run() {
-    //                 weathercdboolean = false;
-    //             }
-    //         }, 5000); // 5 detik
-    //         weatherdata(city);
-    //         if (weatherrrorcode > 200) {
-    //             EmbedBuilder errorweather = new EmbedBuilder();
-    //             errorweather.setColor(0xab00ff);
-    //             if (weatherrrorcode == 404) {
-    //                 errorweather.setTitle("ERROR! Info Cuaca");
-    //                 errorweather.setDescription("Input kota yang benar!\ncoba input menggunakan bahasa inggris");
-    //             } else {
-    //                 errorweather.setTitle("ERROR! Info Cuaca");
-    //                 errorweather.setDescription("Something went wrong...");
-    //             }
-    //             event.getMessage().replyEmbeds(errorweather.build()).queue(message -> message.delete().queueAfter(8, TimeUnit.SECONDS));
-    //             weatherrrorcode = 0;
-    //         } else {
-    //             weatherembd(event);
-    //         }
-    //     }else{
-    //         EmbedBuilder errorweather = new EmbedBuilder();
-    //         errorweather.setColor(0xab00ff);
-    //         errorweather.setTitle("ERROR! Info Cuaca");
-    //         errorweather.setDescription("Sedang cooldown!");
-    //         event.getMessage().replyEmbeds(errorweather.build()).queue(message -> message.delete().queueAfter(8, TimeUnit.SECONDS));
-    //         event.getMessage().delete().queueAfter(8,TimeUnit.SECONDS);
-    //     }
-    // }
-    // public static void weathercommand(SlashCommandInteractionEvent event, String city){
-    //     if(!weathercdboolean) {
-    //         weathercdboolean = true;
-    //         Timer weathercd = new Timer();
-    //         weathercd.schedule(new TimerTask() {
-    //             @Override
-    //             public void run() {
-    //                 weathercdboolean = false;
-    //             }
-    //         }, 5000); // 5 detik
-    //         weatherdata(city);
-    //         if (weatherrrorcode > 200) {
-    //             EmbedBuilder errorweather = new EmbedBuilder();
-    //             errorweather.setColor(0xab00ff);
-    //             if (weatherrrorcode == 404) {
-    //                 errorweather.setTitle("ERROR! Info Cuaca");
-    //                 errorweather.setDescription("Input kota yang benar!\ncoba input menggunakan bahasa inggris");
-    //             } else {
-    //                 errorweather.setTitle("ERROR! Info Cuaca");
-    //                 errorweather.setDescription("Something went wrong...");
-    //             }
-    //             event.replyEmbeds(errorweather.build()).queue(message -> message.deleteOriginal().queueAfter(8, TimeUnit.SECONDS));
-    //             weatherrrorcode = 0;
-    //         } else {
-    //             weatherembd(event);
-    //         }
-    //     }else{
-    //         EmbedBuilder errorweather = new EmbedBuilder();
-    //         errorweather.setColor(0xab00ff);
-    //         errorweather.setTitle("ERROR! Info Cuaca");
-    //         errorweather.setDescription("Sedang cooldown!");
-    //         event.replyEmbeds(errorweather.build()).queue(message -> message.deleteOriginal().queueAfter(8, TimeUnit.SECONDS));
-    //     }
-    // }
-    // //
-    // static void weatherdata(String city){
-    //     final String API_KEY = System.getenv("WEATHER_TOKEN");
-    //     final String URL = "https://api.openweathermap.org/data/2.5/weather?q="+ city + "&appid=" + API_KEY + "&units=metric";
-    //     try {
-    //         // Buka koneksi ke API
-    //         java.net.URL url = URI.create(URL).toURL();
-    //         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-    //         conn.setRequestMethod("GET");
-    //         conn.setRequestProperty("Accept", "application/json");
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
-    //         // Periksa status HTTP
-    //         if (conn.getResponseCode() != 200) {
-    //             weatherrrorcode= (short) conn.getResponseCode();
-    //             System.out.println("cd: "+weatherrrorcode);
-    //         }
+import jasper.Main;
+import jasper.Util.JsonConfig;
+import jasper.feature.Help.FeatureContainer;
+import jasper.featureData.ColorUtil;
+import kotlin.Triple;
+import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.MessageEmbed;
+import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.interactions.commands.OptionMapping;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
+import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 
-    //         // Baca respons dari API
-    //         JSONParser parser = new JSONParser();
-    //         JSONObject jsonObject = (JSONObject) parser.parse(new InputStreamReader(conn.getInputStream()));
+public final class Weather implements FeatureInterface {
+	private static final Properties WEATHER_PROPERTIES = new Properties();
+	private static final String DB_URL = "jdbc:sqlite:cities.db";
+	static {
+		try (Connection conn = DriverManager.getConnection(DB_URL);
+				Statement stmt = conn.createStatement()) {
+			stmt.execute("""
+					    CREATE TABLE IF NOT EXISTS weather_City_Coor (
+					        city TEXT PRIMARY KEY,
+					        country TEXT NOT NULL,
+					        latitude REAL NOT NULL,
+					        longitude REAL NOT NULL
+					    )
+					""");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 
-    //         // COLLECT MAIN DATA
-    //         JSONObject main = (JSONObject) jsonObject.get("main");
-    //         wtemp = ((Number) main.get("temp")).doubleValue(); // Konversi aman ke Double
-    //         whumidity = (long) main.get("humidity");
-    //         wtempfeels = ((Number) main.get("feels_like")).doubleValue(); // Konversi aman ke Double
-    //         wpressure = (long) main.get("pressure");
+		try (InputStream input = Weather.class.getClassLoader()
+				.getResourceAsStream("weather_id.properties")) {
+			WEATHER_PROPERTIES.load(input);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
 
-    //         // COLLECT WEATHER DATA (FIXED)
-    //         JSONArray weatherArray = (JSONArray) jsonObject.get("weather"); // ✅ Ambil sebagai JSONArray
-    //         JSONObject weather = (JSONObject) weatherArray.getFirst(); // ✅ Ambil elemen pertama
-    //         wclouddesc = (String) weather.get("description");
-    //         // COLLECT CLOUD DATA
-    //         JSONObject clouds = (JSONObject) jsonObject.get("clouds");
-    //         wcloudcover = (long) clouds.get("all");
-    //         // COLLECT WIND DATA
-    //         JSONObject wind = (JSONObject) jsonObject.get("wind");
-    //         wwindspeed = ((Number) wind.get("speed")).doubleValue();
-    //         // COLLECT COUNTRY DATA
-    //         JSONObject sys = (JSONObject) jsonObject.get("sys");
-    //         wcountryname = (String) sys.get("country");
-    //         wcountryname = wcountryname.toLowerCase();
+	@Override
+	public CommandInfoContainer commandInsert() {
+		OptionData options = new OptionData(OptionType.STRING,
+				"city", "Masukkan nama kota", true);
+		final List<String> prefixAliases = List.of("weather", "cuaca", "w", "c");
+		Help.inputFeature(new FeatureContainer(
+				prefixAliases,
+				"🔢 **!math** _atau_ **=**",
+				"Kondisi cuaca",
+				List.of("""
+						*Coming Soon*
+						""")));
+		return new FeatureInterface.CommandInfoContainer(
+				"cuaca", "Kondisi cuaca saat ini", prefixAliases,
+				options);
+	}
 
-    //         wvisibility = (long) jsonObject.get("visibility");
-    //         wvisibility/=1000;
-    //         wtimezone = (long) jsonObject.get("timezone");
-    //         wcityname= (String) jsonObject.get("name");
-    //         conn.disconnect();
-    //     } catch (Exception e){e.printStackTrace();}
-    // }
+	@Override
+	public void handleCommand(SlashCommandInteractionEvent event) {
+		final OptionMapping inputArg;
+		if ((inputArg = event.getOption("city")) == null)
+			return;
+		event.replyEmbeds(ColorUtil.WAITING.getEmbedMessage("Weather...")
+				.setDescription("Mohon tunggu...").build())
+				.queue(message -> {
+					final MessageEmbed msge = request(inputArg.getAsString().toLowerCase());
+					message.editOriginalEmbeds(msge).queue();
+					if (msge.getColorRaw() == ColorUtil.ERROR.getColor())
+						message.deleteOriginal().queueAfter(Main.ERROR_DELETE_TIME, TimeUnit.SECONDS);
+				});
+	}
 
-    // static void weatherembd(MessageReceivedEvent event){
-    //     EmbedBuilder weatherembd = new EmbedBuilder();
-    //     weatherembdbuilder(weatherembd);
-    //     event.getMessage().replyEmbeds(weatherembd.build()).queue();
-    //     clearweatherdata();
-    // }
-    // static void weatherembd(SlashCommandInteractionEvent event){
-    //     EmbedBuilder weatherembd = new EmbedBuilder();
-    //     weatherembdbuilder(weatherembd);
-    //     event.replyEmbeds(weatherembd.build()).queue();
-    //     clearweatherdata();
-    // }
-    // //
-    // static void weatherembdbuilder(EmbedBuilder weatherembd){
-    //     switch (wclouddesc){
-    //         case "clear sky"-> wclouddesc = "Langit cerah";
-    //         case "few clouds"->wclouddesc="Sedikit awan";
-    //         case "scattered clouds"->wclouddesc="Awan menyebar";
-    //         case "broken clouds"->wclouddesc = "Awan terpecah";
-    //         case "shower rain"->wclouddesc = "Hujan sebentar";
-    //         case "rain"->wclouddesc = "Hujan";
-    //         case "thunderstorm"->wclouddesc = "Badai petir";
-    //         case "thunderstorm with light rain"->wclouddesc = "Badai petir *dengan* hujan ringan";
-    //         case "thunderstorm with rain"->wclouddesc = "Badai petir *dengan* hujan";
-    //         case "thunderstorm with heavy rain"->wclouddesc ="Badai petir *dengan* hujan deras";
-    //         case "light thunderstorm"->wclouddesc="Badai petir ringan";
-    //         case "heavy thunderstorm"->wclouddesc="Badai petir berat";
-    //         case "ragged thunderstorm"->wclouddesc="Badai petir tidak merata";
-    //         case "thunderstorm with light drizzle"->wclouddesc="Badai petir *dengan* gerimis ringan";
-    //         case "thunderstorm with drizzle"->wclouddesc="Badai petir *dengan* gerimis";
-    //         case "thunderstorm with heavy drizzle"->wclouddesc="Badai petir *dengan* gerimis deras";
-    //         case "mist"->wclouddesc = "Berkabut (tipis)";
-    //         case "overcast clouds"->wclouddesc = "Awan mendung";
-    //         case "hurricane"->wclouddesc = "Angin topan";
-    //         case "windy"->wclouddesc = "Berangin";
-    //         case "fog"->wclouddesc = "Kabut";
-    //         case "haze"->wclouddesc = "Kabut asap";
-    //         case "drizzle"->wclouddesc = "Gerimis";
-    //         case "drizzle rain"->wclouddesc = "Hujan gerimis";
-    //         case "light intensity drizzle"->wclouddesc="Gerimis intesitas ringan";
-    //         case "heavy intensity drizzle"->wclouddesc="Gerimis intesitas berat";
-    //         case "light intensity drizzle rain"->wclouddesc="hujan gerimis intesitas ringan";
-    //         case "heavy intensity drizzle rain"->wclouddesc="hujan gerimis intesitas berat";
-    //         case "shower rain and drizzle"->wclouddesc="Hujan ringan & gerimis";
-    //         case "heavy shower rain and drizzle"->wclouddesc="Hujan deras & gerimis";
-    //         case "shower drizzle"->wclouddesc="Gerimis sebentar";
-    //         case "light rain"->wclouddesc="Hujan ringan";
-    //         case "moderate rain"->wclouddesc="Hujan sedang";
-    //         case "heavy intensity rain"->wclouddesc="Hujan intesitas berat";
-    //         case "very heavy rain"->wclouddesc="Hujan sangat deras";
-    //         case "extreme rain"->wclouddesc = "Hujan ekstrim";
-    //         case "freezing rain"->wclouddesc="Hujan beku";
-    //         case "light intensity shower rain"->wclouddesc="Hujan intesitas ringan sebentar";
-    //         case "heavy intensity shower rain"->wclouddesc="Hujan intesitas berat sebentar";
-    //         case "ragged shower rain"->wclouddesc="Hujan sebentar tidak merata";
-    //         case "light snow"->wclouddesc="Salju ringan";
-    //         case "snow"->wclouddesc = "Bersalju";
-    //         case "heavy snow"->wclouddesc="Salju lebat";
-    //         case "sleet"->wclouddesc="Hujan es";
-    //         case "light shower sleet"->wclouddesc="Hujan es ringan";
-    //         case "shower sleet"->wclouddesc="Hujan es sebentar";
-    //         case "light rain and snow"->wclouddesc="Hujan ringan *dan* salju";
-    //         case "rain and snow"->wclouddesc="Hujan *dan* salju";
-    //         case "light shower snow"->wclouddesc="Hujan salju ringan";
-    //         case "shower snow"->wclouddesc="Hujan salju";
-    //         case "heavy shower snow"->wclouddesc="Hujan salju berat";
-    //         case "smoke"->wclouddesc="Berasap";
-    //         case "sand"->wclouddesc="Badai pasir";
-    //         case "squall","squalls"->wclouddesc="Badai";
-    //         case "tornado"->wclouddesc="Tornado";
-    //         default -> wclouddesc="error...";
-    //     }
-    //     switch (wcountryname){
-    //         case "sq" -> wcountryname = "Albanian";
-    //         case "af" -> wcountryname = "Afrika";
-    //         case "ar" -> wcountryname = "Arab";
-    //         case "az" -> wcountryname = "Azerbaijani";
-    //         case "eu" -> wcountryname = "Basque";
-    //         case "be" -> wcountryname = "Belarusia";
-    //         case "bg" -> wcountryname = "Bulgaria";
-    //         case "ca" -> wcountryname = "Catalan";
-    //         case "zh_cn","zh_tw" -> wcountryname = "Cina";
-    //         case "hr" -> wcountryname = "Kroasia";
-    //         case "cz" -> wcountryname = "Ceko";
-    //         case "da" -> wcountryname = "Denmark";
-    //         case "nl" -> wcountryname = "Belanda";
-    //         case "en" -> wcountryname = "Inggris";
-    //         case "fi" -> wcountryname = "Finlandia";
-    //         case "fr","ci" -> wcountryname = "Prancis";
-    //         case "gb" -> wcountryname = "Britania Raya (UK)";
-    //         case "gl" -> wcountryname = "Galicia";
-    //         case "de" -> wcountryname = "Jerman";
-    //         case "el" -> wcountryname = "Yunani";
-    //         case "he" -> wcountryname = "Ibrani";
-    //         case "hi" -> wcountryname = "India";
-    //         case "hu" -> wcountryname = "Hungaria";
-    //         case "is" -> wcountryname = "Islandia";
-    //         case "id" -> wcountryname = "Indonesia";
-    //         case "it" -> wcountryname = "Italia";
-    //         case "ja" -> wcountryname = "Jepang";
-    //         case "kr" -> wcountryname = "Korea Selatan";
-    //         case "kp" -> wcountryname = "Korea Utara";
-    //         case "ku" -> wcountryname = "Kurdi";
-    //         case "la" -> wcountryname = "Latvia";
-    //         case "lr" -> wcountryname = "Liberia";
-    //         case "lt" -> wcountryname = "Lithuania";
-    //         case "mk" -> wcountryname = "Macedonia";
-    //         case "my" -> wcountryname = "Malaysia";
-    //         case "no" -> wcountryname = "Norwegia";
-    //         case "fa" -> wcountryname = "Persia";
-    //         case "pl" -> wcountryname = "Polandia";
-    //         case "pt" -> wcountryname = "Portugis";
-    //         case "pt_br" -> wcountryname = "Português Brasil";
-    //         case "ro" -> wcountryname = "Rumania";
-    //         case "ru" -> wcountryname = "Rusia";
-    //         case "sr" -> wcountryname = "Serbia";
-    //         case "sk" -> wcountryname = "Slovakia";
-    //         case "sl" -> wcountryname = "Slovenia";
-    //         case "sp", "es" -> wcountryname = "Spanyol"; // Menggunakan OR untuk variasi kode
-    //         case "sv", "se" -> wcountryname = "Swedia";
-    //         case "th" -> wcountryname = "Thailand";
-    //         case "tr" -> wcountryname = "Turki";
-    //         case "ua", "uk" -> wcountryname = "Ukrainia";
-    //         case "us" -> wcountryname = "Amerika Serikat (US)";
-    //         case "vi" -> wcountryname = "Vietnam";
-    //         case "za" -> wcountryname = "Afrika Selatan";
-    //         case "zu" -> wcountryname = "Zulu";
-    //     }
+	@Override
+	public void handleCommandMessage(MessageReceivedEvent event, String[] args) {
+		final Message userMessage = event.getMessage();
+		if (args.length <= 0) {
+			userMessage.replyEmbeds(ColorUtil.ERROR.getEmbedMessage("**ERROR!** Weather")
+					.setDescription("Masukkan nama kota!")
+					.build());
+			return;
+		}
+		final StringBuilder sb = new StringBuilder();
+		for (final String s : args)
+			sb.append(' ' + s);
+		userMessage.replyEmbeds(ColorUtil.WAITING.getEmbedMessage("Weather...")
+				.setDescription("Mohon tunggu...").build())
+				.queue(message -> {
+					final MessageEmbed msge = request(sb.toString().substring(1).toLowerCase());
+					if (msge.getColorRaw() == ColorUtil.NORMAL.getColor())
+						message.editMessageEmbeds(msge).queue();
+					else {
+						message.delete().queueAfter(Main.ERROR_DELETE_TIME, TimeUnit.SECONDS);
+						try {
+							userMessage.delete().queueAfter(Main.ERROR_DELETE_TIME, TimeUnit.SECONDS);
+						} catch (Exception ignored) {
+						}
+					}
+				});
+	}
 
-    //     weatherembd.setColor(0xff00b6);
-    //     weatherembd.setTitle("Info Cuaca");
-    //     weatherembd.setDescription("""
-    //             Kota **%s**
-    //             ☁️**Awan**: %s
-    //               Tertutup awan: %d%%
-    //               Kecepatan angin: %.2fm/s
-    //               Jarak pandang: %.2fkm
-    //             🌡**Udara**:
-    //               Suhu: %.2f℃
-    //               Terasa: %.2f℃
-    //               Kelembapan: %d%%
-    //               Tekanan: %dhPa
-    //             """.formatted(wcityname,wclouddesc,wcloudcover,wwindspeed,wvisibility,wtemp,wtempfeels,whumidity,wpressure));
-    //     weatherembd.setFooter(wcountryname+" UTC - "+wtimezone/3600+"\nby openweathermap");
-    // }
-    // static void clearweatherdata(){
-    //     wclouddesc="";wcityname="";wcountryname="";
-    //     whumidity=0;wcloudcover=0;wtimezone=0;wpressure=0;
-    //     wtemp=0;wwindspeed=0;wvisibility=0;wtempfeels=0;
-    // }
+	private static MessageEmbed request(String cityName) {
+		if (!cityName.matches("[a-zA-Z ]+"))
+			return ColorUtil.ERROR.getEmbedMessage("**ERROR!** Weather")
+					.setDescription("Nama kota hanya boleh huruf alfabet dan spasi!").build();
+
+		final long startTimer = System.currentTimeMillis();
+
+		ObjectNode wi;
+		/** country name, latitude, longitude */
+		Triple<String, Double, Double> city = getCityInfos(cityName.toLowerCase());
+		try {
+			if (city == null) {
+				Main.sendLog("City: " + cityName + " missing, outsourcing...");
+				ObjectNode oN = httpsHandle(
+						"https://geocoding-api.open-meteo.com/v1/search?name="
+								+ URLEncoder.encode(cityName, StandardCharsets.UTF_8) + "&count=1");
+				if (!oN.has("results"))
+					throw new RuntimeException("Kota " + cityName + " tidak ditemukan!");
+				oN = (ObjectNode) oN.get("results").get(0);
+
+				final String realCityName;
+				try (Connection conn = DriverManager.getConnection(DB_URL);
+						PreparedStatement ps = conn.prepareStatement(
+								"INSERT OR IGNORE INTO weather_City_Coor(city, country, latitude, longitude) VALUES(?,?,?,?)")) {
+
+					ps.setString(1, (realCityName = Normalizer.normalize(oN.get("name").asText(),
+							Normalizer.Form.NFD).replaceAll("\\p{M}", "").toLowerCase()));// āàč -> aac
+
+					final String country = oN.get("country").asText();
+					final double latitude = oN.get("latitude").asDouble(),
+							longitude = oN.get("longitude").asDouble();
+
+					ps.setString(2, country);
+					ps.setDouble(3, latitude);
+					ps.setDouble(4, longitude);
+					ps.executeUpdate();
+					city = new Triple<>(country, latitude, longitude);
+				}
+				final String capilatizedRealCity = Character.toUpperCase(realCityName.charAt(0))
+						+ realCityName.substring(1);
+				cityName = !cityName.equalsIgnoreCase(realCityName) ? "\\***" + capilatizedRealCity
+						: "**" + capilatizedRealCity;
+			} else
+				cityName = "**" + Character.toUpperCase(cityName.charAt(0)) + cityName.substring(1);
+
+			final String urlString = "https://api.open-meteo.com/v1/forecast?latitude="
+					+ city.getSecond()
+					+ "&longitude="
+					+ city.getThird()
+					+ "&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,visibility,cloud_cover,weather_code&timezone=auto";
+
+			wi = httpsHandle(urlString);
+		} catch (RuntimeException e) {
+			return ColorUtil.ERROR.getEmbedMessage("**ERROR!** Weather")
+					.setDescription(e.getMessage())
+					.build();
+		} catch (Exception e) {
+			return ColorUtil.ERROR.getEmbedMessage("**ERROR!** Weather")
+					.setDescription("Ada masalah pada https, " + e.getMessage())
+					.build();
+		}
+		final long elapsed = System.currentTimeMillis() - startTimer;
+		return ColorUtil.NORMAL.getEmbedMessage("Weather Info — " + elapsed + "ms")
+				.setDescription(getDescWeatherInfos(wi, cityName))
+				.setFooter(city.getFirst() + ' ' + wi.get("timezone_abbreviation").asText()
+						+ "\nby Open-Meteo")
+				.build();
+	}
+
+	private static String getDescWeatherInfos(ObjectNode wi, @Nullable String cityName) {
+		final ObjectNode curr = (ObjectNode) wi.get("current"),
+				units = (ObjectNode) wi.get("current_units");
+		return new StringBuilder()
+				.append(cityName != null ? "Kota: " + cityName + "**\n"
+						: "Lat: " + wi.get("latitude") + ", Lon: " + wi.get("longitude"))
+				.append("☁️**Awan**: " + WEATHER_PROPERTIES.getProperty("weather." +
+						curr.get("weather_code"), "..."))
+				.append("\nTertutup awan: " + curr.get("cloud_cover") + units.get("cloud_cover").asText())
+				.append("\nKecepatan angin: " + Main.subDigit(curr.get("wind_speed_10m").asDouble() * 5.0 / 18.0,
+						2, false) + "m/s")
+				.append("\nJarak pandang: " + (curr.get("visibility").asInt() / 1_000) + "km")
+				.append("\n**🌡Udara:**")
+				.append("\nSuhu: " + Main.subDigit(curr.get("temperature_2m").asDouble(), 2, false)
+						+ units.get("temperature_2m").asText())
+				.append("\nTerasa: " + Main.subDigit(curr.get("apparent_temperature").asDouble(),
+						2, false) + units.get("apparent_temperature").asText())
+				.append("\nKelembapan: " + curr.get("relative_humidity_2m")
+						+ units.get("relative_humidity_2m").asText())
+				.toString();
+	}
+
+	/**
+	 * 
+	 * @param cityName
+	 * @return {@link Triple}<{@link String country}, {@link Double latitude},
+	 *         {@link Double longitude}>
+	 */
+	private static Triple<String, Double, Double> getCityInfos(final String cityName) {
+		try (Connection conn = DriverManager.getConnection(DB_URL);
+				PreparedStatement ps = conn.prepareStatement(
+						"SELECT country, latitude, longitude FROM weather_City_Coor WHERE city = ?")) {
+			ps.setString(1, cityName);
+			try (ResultSet rs = ps.executeQuery()) {
+				return rs.next()
+						? new Triple<>(rs.getString("country"), rs.getDouble("latitude"), rs.getDouble("longitude"))
+						: null;
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
+
+	/**
+	 * 
+	 * @param url
+	 * @throws Exception
+	 */
+	private static ObjectNode httpsHandle(final String url) throws Exception {
+		HttpsURLConnection conn = null;
+		try {
+			conn = (HttpsURLConnection) URI.create(url).toURL().openConnection();
+			conn.setRequestMethod("GET");
+			conn.setRequestProperty("Accept", "application/json");
+
+			final int responseCode;
+			if ((responseCode = conn.getResponseCode()) != HttpsURLConnection.HTTP_OK)
+				throw new RuntimeException("Ada masalah pada API: " + responseCode);
+
+			StringBuilder response = new StringBuilder();
+			try (BufferedReader reader = new BufferedReader(
+					new InputStreamReader(conn.getInputStream()))) {
+				String line;
+				while ((line = reader.readLine()) != null)
+					response.append(line);
+			}
+			return JsonConfig.parseFromString(response.toString());
+		} finally {
+			if (conn != null)
+				conn.disconnect();
+		}
+	}
 }

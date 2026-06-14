@@ -26,6 +26,8 @@ import org.jetbrains.annotations.Nullable;
 
 import jasper.feature.FeatureInterface;
 import jasper.feature.Help;
+import jasper.feature.Weather;
+import jasper.Util.JsonConfig;
 import jasper.feature.Calculator;
 import kotlin.Pair;
 
@@ -39,6 +41,11 @@ public final class Main extends ListenerAdapter {
     public static Guild guild;
     public static TextChannel logChannel;
     public static Random random = new Random();
+
+    public static JsonConfig jsCfg = new JsonConfig(null, null, true, true);
+
+    public static byte ERROR_DELETE_TIME = 35;
+
     @NotNull
     public final static List<Pair<List<String>, FeatureInterface>> messageCommandMapping = new ArrayList<>();
     @NotNull
@@ -68,6 +75,42 @@ public final class Main extends ListenerAdapter {
             System.err.println("[Log](replacement, channel is null): " + log);
     }
 
+    /**
+     * Format/strip trailing on double
+     * <p>
+     * Example:
+     * 234.211 strip with 2 digits after . (followZero false): 234.21; <br>
+     * or 5 digits followZero true: 234.21100
+     * </p>
+     * 
+     * @return
+     */
+    public static String subDigit(final double d, int howMany, final boolean followZero) {
+        String decimal = String.valueOf(d);
+        int i = 0, dotIndex = decimal.length();
+        for (; i < decimal.length(); i++) {
+            final char c = decimal.charAt(i);
+            if (c == '.') {
+                dotIndex = i;
+                continue;
+            }
+            if (dotIndex == decimal.length())
+                continue;
+            if (--howMany <= 0)
+                break;
+        }
+        final boolean decimalBlank = dotIndex == decimal.length() - 2 && decimal.charAt(decimal.length() - 1) == '0';
+        if (decimalBlank)
+            howMany++;
+        decimal = howMany <= -1 ? decimal.substring(0, decimal.length() - 1)
+                : decimal.substring(0, decimalBlank ? decimal.length() - 2
+                        : ++i >= decimal.length() ? decimal.length() : i);
+        if (followZero && dotIndex != decimal.length() && howMany >= 1)
+            for (; howMany > 0; howMany--)
+                decimal += '0';
+        return decimal;
+    }
+
     @Override
     public void onReady(@NotNull ReadyEvent event) {
         System.out.println("[Log] Start of ready...");
@@ -80,11 +123,12 @@ public final class Main extends ListenerAdapter {
 
         FeatureInterface[] toInserts = { // * Do not forget insert features here
                 new Calculator(),
+                new Weather(),
 
                 new Help()
         };
         for (FeatureInterface i : toInserts) {
-            FeatureInterface.CommandInfoContainer infos = i.commandInsert();
+            final FeatureInterface.CommandInfoContainer infos = i.commandInsert();
             guild.upsertCommand(infos.commandPrefix, infos.commandDesc)
                     .addOptions(infos.optionData).queue();
             commandMapping.put(infos.commandPrefix, i);
@@ -128,7 +172,7 @@ public final class Main extends ListenerAdapter {
         final String prefix = startWithEqual ? argsRaw.getFirst() : argsRaw.getFirst().substring(1);
         if (prefix.isEmpty())
             return;
-        
+
         for (Pair<List<String>, FeatureInterface> i : messageCommandMapping) {
             if (!i.getFirst().contains(prefix))
                 continue;
