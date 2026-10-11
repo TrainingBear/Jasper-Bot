@@ -72,7 +72,7 @@ public final class Calculator implements FeatureInterface {
         for (byte i = 0; i < list.size(); i++)
             list.set(i, new StringBuilder("🔢 Kalkulator matematika\r\n" + //
                     "*Tidak support aljabar*\r\n" + //
-                    "**List/daftar operator:**")
+                    "**List/daftar operator:**\n")
                     .append(list.get(i)).toString());
 
         Help.inputFeature(new FeatureContainer(
