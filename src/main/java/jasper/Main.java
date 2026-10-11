@@ -13,22 +13,23 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
 import javax.security.auth.login.LoginException;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
 import jasper.feature.FeatureInterface;
 import jasper.feature.Help;
-import jasper.feature.Weather;
 import jasper.Util.JsonConfig;
-import jasper.feature.Calculator;
 import kotlin.Pair;
 
 public final class Main extends ListenerAdapter {
@@ -72,7 +73,7 @@ public final class Main extends ListenerAdapter {
             logChannel.sendMessage("[Log] " + log).queue();
             System.out.println("[Log] " + log);
         } else
-            System.err.println("[Log](replacement, channel is null): " + log);
+            System.err.println("[Log](channel is null): " + log);
     }
 
     /**
@@ -90,12 +91,8 @@ public final class Main extends ListenerAdapter {
         int i = 0, dotIndex = decimal.length();
         for (; i < decimal.length(); i++) {
             final char c = decimal.charAt(i);
-            if (c == '.') {
-                dotIndex = i;
-                continue;
-            }
-            if (dotIndex == decimal.length())
-                continue;
+            if ((dotIndex = c == '.' ? i : dotIndex) == i || dotIndex == decimal.length())
+                continue; // if(c=='.') dotIndex = i
             if (--howMany <= 0)
                 break;
         }
@@ -114,6 +111,8 @@ public final class Main extends ListenerAdapter {
     @Override
     public void onReady(@NotNull ReadyEvent event) {
         System.out.println("[Log] Start of ready...");
+        final long startTime = System.currentTimeMillis();
+
         guild = event.getJDA().getGuildById(GUILD_ID);
         if (guild == null)
             throw new NullPointerException("Guild is null, id: " + GUILD_ID);
@@ -121,35 +120,66 @@ public final class Main extends ListenerAdapter {
         if (logChannel == null)
             sendLog("Log channel is null, logs will not be displayed!!!");
 
-        FeatureInterface[] toInserts = { // * Do not forget insert features here
-                new Calculator(),
-                new Weather(),
+        ArrayList<FeatureInterface> toInserts = new ArrayList<>();
+        FeatureInterface helpFeature = null;
 
-                new Help()
-        };
+        try (JarFile jar = new JarFile(new File(Main.class.getProtectionDomain()
+                .getCodeSource().getLocation().toURI()))) {
+            Enumeration<JarEntry> entries = jar.entries();
+            while (entries.hasMoreElements()) {
+                String name = entries/* JarEntry */.nextElement().getName();
+                if (!name.startsWith("jasper/feature/") || !name.endsWith(".class") || name.contains("$"))
+                    continue;
+
+                final String className = name.replace('/', '.').replace(".class", "");
+                final Class<?> clazz = Class.forName(className);
+                if (clazz.isInterface())
+                    continue;
+
+                final FeatureInterface fI = (FeatureInterface) clazz.getDeclaredConstructor().newInstance();
+                if (fI instanceof Help help)
+                    helpFeature = help;
+                else
+                    toInserts.add(fI);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        if (helpFeature != null)
+            toInserts.add(helpFeature);
+
+        byte featureCount = 0;
         for (FeatureInterface i : toInserts) {
             final FeatureInterface.CommandInfoContainer infos = i.commandInsert();
+            if (infos.commandDesc.charAt(0) == '^') {
+                System.out.println("[Log] Skipping: " + infos.commandPrefix + ". Cause:\n    " + infos.commandDesc.substring(1));
+                continue;
+            }
             guild.upsertCommand(infos.commandPrefix, infos.commandDesc)
                     .addOptions(infos.optionData).queue();
             commandMapping.put(infos.commandPrefix, i);
 
             if (infos.msgCommandAliases != null)
                 messageCommandMapping.add(new Pair<List<String>, FeatureInterface>(infos.msgCommandAliases, i));
+            featureCount++;
             System.out.println(
                     "[Log] Inserting " + (infos.msgCommandAliases != null ? "message command and " : "")
                             + "command handler of " + infos.commandPrefix);
         }
-        System.out.println("[Log] Finished Start of ready...");
+        final long tookTimeMS = (System.currentTimeMillis() - startTime);
+        sendLog("Finished Start of ready. Registered `" + featureCount + "` feature(s), took: "
+                + tookTimeMS + "ms...");
     }
 
     @Override
     public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
-        FeatureInterface fI = commandMapping.get(event.getName());
+        final FeatureInterface fI = commandMapping.get(event.getName());
         if (fI != null) {
-            fI.handleCommand(event);
+            fI.handleSlashCommand(event);
 
             StringBuilder sb = new StringBuilder().append(event.getName() + ' ');
-            for (OptionMapping option : event.getOptions())
+            for (OptionMapping option : event.getOptions()) // for logs purpose
                 sb.append(option.getName()).append(": ").append(option.getAsString()).append(" ");
             sendLog(event.getUser().getName() + " in " + event.getChannel().getName() + " executing: " + sb.toString());
 
@@ -161,7 +191,9 @@ public final class Main extends ListenerAdapter {
     public void onMessageReceived(@NotNull MessageReceivedEvent event) {
         final String rawMessage = event.getMessage().getContentRaw().toLowerCase();
         final boolean startWithEqual = rawMessage.startsWith("="); // exclusive command suggested by kujatic :moyai:
-        if (event.getAuthor().isBot() || !event.isFromGuild() || (!rawMessage.startsWith("!") && !startWithEqual))
+        final String cmdTrigger = FeatureInterface.commandTriggerStr;
+        if (event.getAuthor().isBot() || !event.isFromGuild()
+                || (!rawMessage.startsWith(cmdTrigger) && !startWithEqual))
             return;
 
         final List<String> argsRaw = new ArrayList<>(Arrays.asList(rawMessage.split("\\s+")));
@@ -180,7 +212,7 @@ public final class Main extends ListenerAdapter {
             System.arraycopy(argsRaw.toArray(String[]::new), 1, args, 0, argsRaw.size() - 1);
 
             sendLog(event.getAuthor().getName() + " in " + event.getChannel().getName() + " sending: " + rawMessage);
-            i.getSecond().handleCommandMessage(event, args);
+            i.getSecond().handleMessageCommand(event, args);
             return;
         }
     }

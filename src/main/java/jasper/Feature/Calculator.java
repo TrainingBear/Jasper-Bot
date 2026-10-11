@@ -3,6 +3,7 @@ package jasper.feature;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,55 +28,64 @@ import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
 
 public final class Calculator implements FeatureInterface {
 
+    public Calculator() {
+    }
+
     @Override
     public FeatureInterface.CommandInfoContainer commandInsert() {
         OptionData options = new OptionData(OptionType.STRING,
                 "input", "Masukkan input untuk dikalkulasi,", true);
         final List<String> prefixAliases = List.of("math", "=");
+
+        List<String> list = new ArrayList<>(List.of(
+                """
+                [ `+` ] Penjumlahan [ `-` ] Pengurangan
+                [ `*` ] Perkalian [ `/` ] Pembagian
+                [ `;` ] Modulus/sisa
+                [ `(\uD835\uDC5B)` ] Tanda kurung
+                [ `a^b` ] Perpangkatan
+                [ \uD835\uDC5B`!` ] Pemfaktorial
+                [ `pi` ] Pi/π (3.14≈)  [ `e` ] e *konstanta* (2.71≈)
+                [ \uD835\uDC5B`%` ] Persentase
+                **Suffix:** *satuan*
+                [ \uD835\uDC5B`k` ] seribu [ \uD835\uDC5B`m` ] sejuta
+                [ \uD835\uDC5B`b` ] semilyar [ \uD835\uDC5B`t` ] setriliun
+                """, """
+                [ `sqrt(\uD835\uDC5B)` ] Akar kuadrat
+                [ `cbrt(\uD835\uDC5B)` ] Akar kubik
+                [ `logt(\uD835\uDC5B)` ] Logaritma basis 10
+                [ `loge(\uD835\uDC5B)` ] Logaritma basis e (2.71≈)
+                [ `ceil(\uD835\uDC5B)` ] Membulatkan angka desimal ke atas
+                [ `flr(\uD835\uDC5B)` ] Membulatkan angka desimal ke bawah
+                [ `rnd(\uD835\uDC5B)` ] Membulatkan angka ≥.5=↑ <.5=↓
+                [ `abs(\uD835\uDC5B)` ] Mengubah angka menjadi selalu positif +
+                """, """
+                [ `sin(\uD835\uDC5B)` ] Sinus (Sisi Depan)/(Sisi Miring) (memakai radian)
+                [ `cos(\uD835\uDC5B)` ] Cosinus (Sisi Samping)/(Sisi Miring) (memakai radian)
+                [ `tan(\uD835\uDC5B)` ] Tangen (Sisi Depan)/(Sisi Samping) (memakai radian)
+                [ `asin(\uD835\uDC5B)` ] Invers dari sin atau sin⁻¹(hasil sin) = derajat
+                [ `acos(\uD835\uDC5B)` ] Invers dari cos atau cos⁻¹(hasil cos) = derajat
+                [ `atan(\uD835\uDC5B)` ] Invers dari tan atau tan⁻¹(hasil tan) = derajat
+                [ `rad(\uD835\uDC5B)` ] Mengubah angka menjadi radian
+                [ `deg(\uD835\uDC5B)` ] Mengubah angka menjadi degree/derajat
+                """));
+        for (byte i = 0; i < list.size(); i++)
+            list.set(i, new StringBuilder("🔢 Kalkulator matematika\r\n" + //
+                    "*Tidak support aljabar*\r\n" + //
+                    "**List/daftar operator:**")
+                    .append(list.get(i)).toString());
+
         Help.inputFeature(new FeatureContainer(
                 prefixAliases,
                 "🔢 **!math** _atau_ **=**",
-                "Kalkulator matematika",
-                List.of("""
-                        🔢 Kalkulator matematika
-                        *Tidak support aljabar*
-                        **List/daftar operator:**
-                        [ `+` ] Penjumlahan [ `-` ] Pengurangan
-                        [ `*` ] Perkalian [ `/` ] Pembagian
-                        [ `;` ] Modulus/sisa
-                        [ `(\uD835\uDC5B)` ] Tanda kurung
-                        [ `a^b` ] Perpangkatan
-                        [ \uD835\uDC5B`!` ] Pemfaktorial
-                        [ `pi` ] Pi/π (3.14≈)  [ `e` ] e *konstanta* (2.71≈)
-                        [ \uD835\uDC5B`%` ] Persentase
-                        **Suffix:** *satuan*
-                        [ \uD835\uDC5B`k` ] seribu [ \uD835\uDC5B`m` ] sejuta
-                        [ \uD835\uDC5B`b` ] semilyar [ \uD835\uDC5B`t` ] setriliun
-                        """, """
-                        🔢 Kalkulator matematika
-                        *Tidak support aljabar*
-                        **List/daftar operator:**
-                        [ `sqrt(\uD835\uDC5B)` ] Akar kuadrat
-                        [ `cbrt(\uD835\uDC5B)` ] Akar kubik
-                        [ `logt(\uD835\uDC5B)` ] Logaritma basis 10
-                        [ `loge(\uD835\uDC5B)` ] Logaritma basis e (2.71≈)
-                        [ `ceil(\uD835\uDC5B)` ] Membulatkan angka desimal ke atas
-                        [ `flr(\uD835\uDC5B)` ] Membulatkan angka desimal ke bawah
-                        [ `rnd(\uD835\uDC5B)` ] Membulatkan angka ≥.5=↑ <.5=↓
-                        [ `abs(\uD835\uDC5B)` ] Mengubah angka menjadi selalu positif +
-                        [ `sin(\uD835\uDC5B)` ] Sinus (Sisi Depan)/(Sisi Miring) (memakai radian)
-                        [ `cos(\uD835\uDC5B)` ] Cosinus (Sisi Samping)/(Sisi Miring) (memakai radian)
-                        [ `tan(\uD835\uDC5B)` ] Tangen (Sisi Depan)/(Sisi Samping) (memakai radian)
-                        [ `rad(\uD835\uDC5B)` ] Mengubah angka menjadi radian
-                        [ `deg(\uD835\uDC5B)` ] Mengubah angka menjadi degree/derajat
-                        """)));
+                "Kalkulator matematika", list));
         return new FeatureInterface.CommandInfoContainer(
                 "math", "Kalkulator matematika, tidak support aljabar", prefixAliases,
                 options);
     }
 
     @Override
-    public void handleCommand(SlashCommandInteractionEvent event) {
+    public void handleSlashCommand(SlashCommandInteractionEvent event) {
         final OptionMapping inputArg;
         if ((inputArg = event.getOption("input")) == null)
             return;
@@ -86,7 +96,7 @@ public final class Calculator implements FeatureInterface {
     }
 
     @Override
-    public void handleCommandMessage(MessageReceivedEvent event, String[] args) {
+    public void handleMessageCommand(MessageReceivedEvent event, String[] args) {
         if (args.length == 0) {
             event.getMessage().replyEmbeds(ColorUtil.ERROR.getEmbedMessage("Kalkulator")
                     .setDescription("Masukkan input!").build())
@@ -389,6 +399,9 @@ public final class Calculator implements FeatureInterface {
         SIN((iw, sc, cv) -> new BigDecimal(Math.sin(cv.doubleValue())), "sin"),
         COS((iw, sc, cv) -> new BigDecimal(Math.cos(cv.doubleValue())), "cos"),
         TAN((iw, sc, cv) -> new BigDecimal(Math.tan(cv.doubleValue())), "tan"),
+        ASIN((iw, sc, cv) -> new BigDecimal(Math.asin(cv.doubleValue())), "asin"),
+        ACOS((iw, sc, cv) -> new BigDecimal(Math.acos(cv.doubleValue())), "acos"),
+        ATAN((iw, sc, cv) -> new BigDecimal(Math.atan(cv.doubleValue())), "atan"),
 
         DEG((iw, sc, cv) -> new BigDecimal(Math.toDegrees(cv.doubleValue())), "deg"),
         RAD((iw, sc, cv) -> new BigDecimal(Math.toRadians(cv.doubleValue())), "rad"),

@@ -40,6 +40,9 @@ public final class Help implements FeatureInterface {
         }
     }
 
+    public Help() {
+    }
+
     @Override
     public @NotNull CommandInfoContainer commandInsert() {
         OptionData optHelpType = new OptionData(OptionType.STRING,
@@ -51,14 +54,14 @@ public final class Help implements FeatureInterface {
     }
 
     @Override
-    public void handleCommand(@NotNull SlashCommandInteractionEvent event) {
+    public void handleSlashCommand(@NotNull SlashCommandInteractionEvent event) {
         EmbedBuilder embedMessage = ColorUtil.NORMAL.getEmbedMessage("Jasper⛏Project Command list")
                 .setDescription("Testing");
         event.replyEmbeds(embedMessage.build()).queue();
     }
 
     @Override
-    public void handleCommandMessage(@NotNull MessageReceivedEvent event, @NotNull final String[] args) {
+    public void handleMessageCommand(@NotNull MessageReceivedEvent event, @NotNull final String[] args) {
         if (args.length > 2) {
             argumentNotValid(event.getMessage(), null);
             return;
